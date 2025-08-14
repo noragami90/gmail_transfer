@@ -1,0 +1,16 @@
+# Скопируйте содержимое этого файла в .env и заполните необходимые данные
+
+# Путь к файлу JSON с ключами сервисного аккаунта
+SERVICE_ACCOUNT_FILE=path/to/your/service-account-key.json
+
+# Домен вашего Google Workspace
+WORKSPACE_DOMAIN=yourcompany.com
+
+# Логирование (DEBUG, INFO, WARNING, ERROR)
+LOG_LEVEL=INFO
+
+# Максимальное количество результатов за один запрос к API
+BATCH_SIZE=100
+
+# Задержка между запросами к API (в секундах)
+API_DELAY=0.1
