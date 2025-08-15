@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Создаем папку logs и настраиваем права
+mkdir -p /app/logs
+chmod 755 /app/logs
+
 # Создаем service account файл из base64 переменной окружения
 if [ -n "$SERVICE_ACCOUNT_BASE64" ]; then
     echo "Creating service account file from base64 environment variable..."

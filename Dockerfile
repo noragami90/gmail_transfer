@@ -42,9 +42,10 @@ COPY . .
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Создаем необходимые директории
+# Создаем необходимые директории и настраиваем права
 RUN mkdir -p logs static/css static/js templates && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app/logs
 
 # Переключаемся на непривилегированного пользователя
 USER appuser
