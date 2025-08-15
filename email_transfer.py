@@ -83,11 +83,15 @@ class EmailTransfer:
             else:
                 source_labels_map = {}
             
+            # ВСЕГДА добавляем INBOX для перенесенных сообщений
+            target_label_ids.append('INBOX')
+            
             # Сопоставляем метки
             for label_id in source_label_ids:
                 # Пропускаем системные метки, которые нельзя создавать
                 if label_id in ['INBOX', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'IMPORTANT', 'STARRED']:
-                    if label_id in target_labels_map.values():
+                    # INBOX уже добавлен выше, остальные проверяем
+                    if label_id != 'INBOX' and label_id in target_labels_map.values():
                         target_label_ids.append(label_id)
                     continue
                 
@@ -133,8 +137,123 @@ class EmailTransfer:
         except Exception:
             return None
     
+    def modify_headers_for_import(self, raw_message: str, target_user_email: str, source_user_email: str = None) -> str:
+        """
+        Модифицирует заголовки сообщения для корректного импорта
+        
+        Args:
+            raw_message: Исходное raw сообщение
+            target_user_email: Email целевого пользователя
+            
+        Returns:
+            Модифицированное raw сообщение
+        """
+        try:
+            import uuid
+            import time
+            from datetime import datetime
+            
+            lines = raw_message.split('\n')
+            modified_lines = []
+            message_id_replaced = False
+            
+            for line in lines:
+                # Заменяем проблемные заголовки
+                if line.startswith('Delivered-To:'):
+                    # Заменяем на целевой email
+                    modified_lines.append(f'Delivered-To: {target_user_email}')
+                elif line.startswith('Message-ID:') or line.startswith('Message-Id:'):
+                    # Генерируем новый уникальный Message-ID
+                    if not message_id_replaced:
+                        new_msg_id = f"<{uuid.uuid4()}@gmail-transfer.local>"
+                        modified_lines.append(f'Message-ID: {new_msg_id}')
+                        message_id_replaced = True
+                elif line.startswith('X-Google-Smtp-Source:'):
+                    # Удаляем Google SMTP заголовки
+                    continue
+                elif line.startswith('X-Received:'):
+                    # Удаляем Google X-Received заголовки
+                    continue
+                elif line.startswith('ARC-Seal:') or line.startswith('ARC-Message-Signature:') or line.startswith('ARC-Authentication-Results:'):
+                    # Удаляем ARC заголовки
+                    continue
+                elif line.startswith('Received: from 895081623425'):
+                    # Удаляем Google API Received заголовки
+                    continue
+                elif line.startswith('Received: by 2002:') and ('gmailapi.google.com' in line or 'gmail.googleapis.com' in line):
+                    # Удаляем Gmail API Received заголовки
+                    continue
+                else:
+                    modified_lines.append(line)
+            
+            # Добавляем заголовок переноса
+            transfer_header = f'X-Gmail-Transfer: Moved from {source_user_email} at {datetime.now().isoformat()}'
+            
+            # Находим конец заголовков и вставляем наш заголовок
+            header_end_index = -1
+            for i, line in enumerate(modified_lines):
+                if line.strip() == '':  # Пустая строка означает конец заголовков
+                    header_end_index = i
+                    break
+            
+            if header_end_index > 0:
+                modified_lines.insert(header_end_index, transfer_header)
+            else:
+                # Если не нашли конец заголовков, добавляем в начало
+                modified_lines.insert(1, transfer_header)
+            
+            return '\n'.join(modified_lines)
+            
+        except Exception as e:
+            logger.warning(f"Ошибка модификации заголовков: {e}")
+            return raw_message  # Возвращаем оригинал при ошибке
+    
+    def _map_message_labels(self, message_details: Dict[str, Any], 
+                           source_labels_map: Dict[str, str], 
+                           target_labels_map: Dict[str, str]) -> List[str]:
+        """
+        Эффективно сопоставляет метки сообщения без лишних API вызовов
+        
+        Args:
+            message_details: Детали сообщения
+            source_labels_map: Карта меток источника (id -> name)
+            target_labels_map: Карта меток цели (name -> id)
+            
+        Returns:
+            Список ID меток для применения
+        """
+        # ВСЕГДА добавляем INBOX для перенесенных сообщений
+        label_ids = ['INBOX']
+        
+        if not source_labels_map or not target_labels_map:
+            return label_ids
+            
+        source_label_ids = message_details.get('labelIds', [])
+        
+        # Сопоставляем метки
+        for label_id in source_label_ids:
+            # Пропускаем системные метки, которые нельзя создавать
+            if label_id in ['INBOX', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'IMPORTANT', 'STARRED']:
+                # INBOX уже добавлен выше, остальные проверяем
+                if label_id != 'INBOX':
+                    label_ids.append(label_id)
+                continue
+            
+            # Получаем название метки
+            label_name = source_labels_map.get(label_id)
+            if not label_name:
+                continue
+            
+            # Проверяем, существует ли метка в целевом аккаунте
+            if label_name in target_labels_map:
+                label_ids.append(target_labels_map[label_name])
+        
+        return label_ids
+    
     def transfer_single_message(self, source_user_email: str, target_user_email: str, 
-                               message_id: str) -> bool:
+                               message_id: str, transfer_label_id: str = None, 
+                               source_labels_map: Dict[str, str] = None,
+                               target_labels_map: Dict[str, str] = None) -> bool:
         """
         Переносит одно сообщение
         
@@ -142,6 +261,9 @@ class EmailTransfer:
             source_user_email: Email исходного пользователя
             target_user_email: Email целевого пользователя
             message_id: ID сообщения
+            transfer_label_id: ID метки переноса (если уже создана)
+            source_labels_map: Карта меток источника (id -> name)
+            target_labels_map: Карта меток цели (name -> id)
             
         Returns:
             True если перенос успешен, False иначе
@@ -153,8 +275,43 @@ class EmailTransfer:
             # Получаем raw содержимое
             raw_message = self.get_message_raw(source_user_email, message_id)
             
-            # Подготавливаем метки
-            label_ids = self.preserve_message_metadata(message_details, target_user_email)
+            # КРИТИЧНО: Модифицируем заголовки для корректного импорта
+            raw_message = self.modify_headers_for_import(raw_message, target_user_email, source_user_email)
+            
+            # Если карты меток не переданы, получаем их (для standalone вызовов)
+            if source_labels_map is None or target_labels_map is None:
+                logger.info("Получение карт меток для standalone переноса...")
+                source_labels = self.gmail_client.get_labels(source_user_email)
+                target_labels = self.gmail_client.get_labels(target_user_email)
+                
+                source_labels_map = {label['id']: label['name'] for label in source_labels}
+                target_labels_map = {label['name']: label['id'] for label in target_labels}
+            
+            # Создаем метку переноса, если не передана
+            if transfer_label_id is None:
+                transfer_label_name = f"Transferred from {source_user_email}"
+                
+                # Проверяем, существует ли метка
+                if transfer_label_name in target_labels_map:
+                    transfer_label_id = target_labels_map[transfer_label_name]
+                    logger.info(f"Используем существующую метку переноса: {transfer_label_name}")
+                else:
+                    # Создаем новую метку
+                    try:
+                        transfer_label = self.gmail_client.create_label(target_user_email, transfer_label_name)
+                        transfer_label_id = transfer_label['id']
+                        target_labels_map[transfer_label_name] = transfer_label_id
+                        logger.info(f"Создана метка переноса: {transfer_label_name}")
+                    except Exception as e:
+                        logger.warning(f"Не удалось создать метку переноса: {e}")
+                        transfer_label_id = None
+            
+            # Подготавливаем метки эффективно
+            label_ids = self._map_message_labels(message_details, source_labels_map, target_labels_map)
+            
+            # Добавляем метку переноса
+            if transfer_label_id:
+                label_ids.append(transfer_label_id)
             
             # Импортируем сообщение
             result = self.gmail_client.import_message(
@@ -194,14 +351,29 @@ class EmailTransfer:
         self.skipped_count = 0
         
         try:
+            # ОДИН РАЗ получаем карты меток для эффективности
+            logger.info("Подготовка карт меток...")
+            source_labels = self.gmail_client.get_labels(source_user_email)
+            target_labels = self.gmail_client.get_labels(target_user_email)
+            
+            source_labels_map = {label['id']: label['name'] for label in source_labels}
+            target_labels_map = {label['name']: label['id'] for label in target_labels}
+            
             # Создаем метку для отслеживания перенесенных сообщений
             transfer_label_id = None
             if create_transfer_label:
                 try:
                     transfer_label_name = f"Transferred from {source_user_email}"
-                    transfer_label = self.gmail_client.create_label(target_user_email, transfer_label_name)
-                    transfer_label_id = transfer_label['id']
-                    logger.info(f"Создана метка переноса: {transfer_label_name}")
+                    
+                    # Проверяем, может метка уже существует
+                    if transfer_label_name in target_labels_map:
+                        transfer_label_id = target_labels_map[transfer_label_name]
+                        logger.info(f"Используем существующую метку переноса: {transfer_label_name}")
+                    else:
+                        transfer_label = self.gmail_client.create_label(target_user_email, transfer_label_name)
+                        transfer_label_id = transfer_label['id']
+                        target_labels_map[transfer_label_name] = transfer_label_id  # Обновляем карту
+                        logger.info(f"Создана метка переноса: {transfer_label_name}")
                 except Exception as e:
                     logger.warning(f"Не удалось создать метку переноса: {e}")
             
@@ -230,27 +402,18 @@ class EmailTransfer:
                     message_id = message['id']
                     
                     try:
-                        # Переносим сообщение
+                        # Переносим сообщение ЭФФЕКТИВНО (без повторных API вызовов)
                         success = self.transfer_single_message(
                             source_user_email, 
                             target_user_email, 
-                            message_id
+                            message_id,
+                            transfer_label_id,
+                            source_labels_map,
+                            target_labels_map
                         )
                         
                         if success:
                             self.transferred_count += 1
-                            
-                            # Добавляем метку переноса если нужно
-                            if transfer_label_id:
-                                try:
-                                    target_service = self.gmail_client._impersonate_user(target_user_email)
-                                    target_service.users().messages().modify(
-                                        userId='me',
-                                        id=message_id,
-                                        body={'addLabelIds': [transfer_label_id]}
-                                    ).execute()
-                                except Exception:
-                                    pass  # Не критично если не удалось добавить метку
                         else:
                             self.error_count += 1
                         

@@ -182,8 +182,8 @@ class GmailClient:
             if label_ids:
                 body['labelIds'] = label_ids
             
-            # Импортируем сообщение
-            result = target_service.users().messages().import_(
+            # Вставляем сообщение (insert_ добавляет в ящик, import_ - нет!)
+            result = target_service.users().messages().insert(
                 userId='me',
                 body=body
             ).execute()

@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Одиночный перенос - Gmail Transfer Tool{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-arrow-left-right me-2 text-primary"></i>
+            Одиночный перенос почты
+        </h2>
+        <p class="text-muted mb-0">Перенос почты между двумя сотрудниками</p>
+    </div>
+    <div>
+        <button type="button" class="btn btn-outline-info me-2" id="restoreProgressBtn" title="Восстановить прогресс переноса">
+            <i class="bi bi-arrow-clockwise me-1"></i>
+            Восстановить прогресс
+        </button>
+        <a href="/" class="btn btn-outline-secondary">
+            <i class="bi bi-house me-1"></i>
+            На главную
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Main Transfer Form -->
+    <div class="col-lg-8">
+        <div class="card shadow-lg border-0">
+            <div class="card-header text-white py-3">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-envelope-arrow-up me-2"></i>
+                    Настройка переноса
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form id="transferForm">
+                    <!-- Email Fields -->
+                    <div class="row mb-4">
+                        <!-- Source Email -->
+                        <div class="col-md-6">
+                            <label for="sourceEmail" class="form-label fw-semibold mb-2">
+                                <i class="bi bi-person-dash text-danger me-1"></i>
+                                Откуда (исходный сотрудник)
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="bi bi-envelope text-muted"></i>
+                                </span>
+                                <input type="email" class="form-control" id="sourceEmail" 
+                                       placeholder="old.employee@company.com" required>
+                                <button type="button" class="btn btn-outline-success" id="testSourceBtn" title="Проверить подключение">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Email сотрудника, чью почту нужно перенести</div>
+                        </div>
+                        
+                        <!-- Target Email -->
+                        <div class="col-md-6">
+                            <label for="targetEmail" class="form-label fw-semibold mb-2">
+                                <i class="bi bi-person-plus text-success me-1"></i>
+                                Куда (новый сотрудник)
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="bi bi-envelope text-muted"></i>
+                                </span>
+                                <input type="email" class="form-control" id="targetEmail" 
+                                       placeholder="new.employee@company.com" required>
+                                <button type="button" class="btn btn-outline-success" id="testTargetBtn" title="Проверить подключение">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Email сотрудника, которому переносим почту</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Settings -->
+                    <div class="card bg-light border-0 mb-4">
+                        <div class="card-header bg-light border-0">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-gear me-2"></i>
+                                Дополнительные настройки
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="queryFilter" class="form-label fw-semibold">
+                                        <i class="bi bi-funnel me-1"></i>
+                                        Фильтр сообщений
+                                    </label>
+                                    <input type="text" class="form-control" id="queryFilter" 
+                                           placeholder="after:2024/01/01 has:attachment">
+                                    <div class="form-text">Например: after:2024/01/01, from:boss@company.com, has:attachment</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="maxMessages" class="form-label fw-semibold">
+                                        <i class="bi bi-hash me-1"></i>
+                                        Максимум сообщений
+                                    </label>
+                                    <input type="number" class="form-control" id="maxMessages" 
+                                           placeholder="Оставьте пустым для всех" min="1">
+                                    <div class="form-text">Ограничение количества переносимых сообщений</div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="createLabel" checked>
+                                        <label class="form-check-label fw-semibold" for="createLabel">
+                                            <i class="bi bi-tags me-1"></i>
+                                            Создать метку "Transferred from [email]"
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-primary btn-lg" id="previewBtn">
+                            <i class="bi bi-eye me-1"></i>
+                            Предварительный просмотр
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-play-fill me-1"></i>
+                            Начать перенос
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Panel -->
+    <div class="col-lg-4">
+        <!-- User Statistics -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header text-white py-3">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Статистика исходного пользователя
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="sourceStats" class="mb-3 p-3 bg-light rounded border">
+                    <h6 class="text-danger fw-semibold mb-3">
+                        <i class="bi bi-person-dash me-1"></i>
+                        Статистика исходного пользователя
+                    </h6>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="fw-bold text-primary fs-5" id="sourceTotal">-</div>
+                            <small class="text-muted">Сообщений</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold text-info fs-5" id="sourceLabels">-</div>
+                            <small class="text-muted">Меток</small>
+                        </div>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="badge bg-secondary" id="sourceStatus">Не проверен</span>
+                    </div>
+                </div>
+                
+
+                
+                <div class="text-center">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="refreshStatsBtn">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        Обновить статистику
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gmail Filters Help -->
+        <div class="card shadow border-0">
+            <div class="card-header bg-info text-white py-3">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-question-circle me-2"></i>
+                    Помощь по фильтрам
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="fw-semibold">Примеры фильтров Gmail:</h6>
+                <div class="mb-2">
+                    <code class="bg-light p-1 rounded">after:2024/01/01</code>
+                    <small class="d-block text-muted">Сообщения после даты</small>
+                </div>
+                <div class="mb-2">
+                    <code class="bg-light p-1 rounded">from:boss@company.com</code>
+                    <small class="d-block text-muted">От конкретного отправителя</small>
+                </div>
+                <div class="mb-2">
+                    <code class="bg-light p-1 rounded">has:attachment</code>
+                    <small class="d-block text-muted">Только с вложениями</small>
+                </div>
+                <div class="mb-2">
+                    <code class="bg-light p-1 rounded">subject:важно</code>
+                    <small class="d-block text-muted">По теме сообщения</small>
+                </div>
+                <div class="mb-2">
+                    <code class="bg-light p-1 rounded">is:important</code>
+                    <small class="d-block text-muted">Важные сообщения</small>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="https://support.google.com/mail/answer/7190" target="_blank" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>
+                        Подробнее
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Section -->
+<div class="row mt-4" id="progressCard" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-lg border-0">
+            <div class="card-header text-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity me-2"></i>
+                        <span id="progressTitle">Прогресс переноса</span>
+                    </h5>
+                    <button type="button" class="btn btn-outline-light btn-sm" id="cancelBtn">
+                        <i class="bi bi-stop-fill me-1"></i>
+                        Отменить
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" style="width: 0%">
+                                <span id="progressText" class="fw-bold">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-end">
+                            <div class="fw-bold text-primary fs-5">
+                                <span id="transferredMessages">0</span> / <span id="totalMessages">0</span>
+                            </div>
+                            <small class="text-muted">перенесено сообщений</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="fw-bold text-danger fs-4" id="errorMessages">0</div>
+                        <small class="text-muted">Ошибок</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fw-bold text-info fs-4" id="timeRemaining">0:00</div>
+                        <small class="text-muted">Осталось</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fw-bold text-success fs-4" id="transferSpeed">0</div>
+                        <small class="text-muted">сообщ/мин</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fw-bold text-warning fs-4" id="elapsedTime">0:00</div>
+                        <small class="text-muted">Прошло времени</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alertContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <h5 id="loadingModalTitle">Загрузка...</h5>
+                <p class="text-muted mb-0" id="loadingModalText">Пожалуйста, подождите</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+<script src="/static/js/transfer.js"></script>
+{% endblock %}

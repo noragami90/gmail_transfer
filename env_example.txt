@@ -1,7 +1,9 @@
 # Скопируйте содержимое этого файла в .env и заполните необходимые данные
 
 # Путь к файлу JSON с ключами сервисного аккаунта
-SERVICE_ACCOUNT_FILE=path/to/your/service-account-key.json
+# Для Docker: всегда используйте /app/service-account-key.json
+# Для локального запуска: укажите реальный путь к файлу
+SERVICE_ACCOUNT_FILE=/app/service-account-key.json
 
 # Домен вашего Google Workspace
 WORKSPACE_DOMAIN=yourcompany.com
@@ -14,3 +16,6 @@ BATCH_SIZE=100
 
 # Задержка между запросами к API (в секундах)
 API_DELAY=0.1
+
+# Redis настройки (для Docker Compose)
+REDIS_PASSWORD=securepassword123

@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Основное приложение
+  gmail-transfer:
+    image: ghcr.io/noragami90/gmail_transfer:latest
+    container_name: gmail-transfer-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PORT=5000
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./service-account-key.json:/app/service-account-key.json:ro
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - gmail-transfer-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis для кэширования и очередей
+  redis:
+    image: redis:7-alpine
+    container_name: gmail-transfer-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - gmail-transfer-network
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  gmail-transfer-network:
+    driver: bridge

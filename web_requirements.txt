@@ -1,0 +1,15 @@
+flask==3.0.0
+flask-cors==4.0.0
+flask-socketio==5.3.6
+python-socketio==5.11.0
+gunicorn==21.2.0
+eventlet==0.34.3
+redis==5.0.1
+celery==5.3.4
+python-dotenv==1.0.1
+tqdm==4.66.4
+colorlog==6.8.2
+google-api-python-client==2.134.0
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0

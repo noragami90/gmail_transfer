@@ -1,0 +1,673 @@
+{% extends "base.html" %}
+
+{% block title %}История переносов - Gmail Transfer Tool{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-clock-history me-2 text-info"></i>
+            История переносов
+        </h2>
+        <p class="text-muted mb-0">Просмотр и анализ всех выполненных операций</p>
+    </div>
+    <div>
+        <a href="/" class="btn btn-outline-secondary">
+            <i class="bi bi-house me-1"></i>
+            На главную
+        </a>
+    </div>
+</div>
+
+<!-- Transfer Type Tabs -->
+<div class="row mb-4">
+    <div class="col-12">
+        <!-- Tab Navigation -->
+        <div class="mb-3 p-3 bg-white rounded shadow-sm">
+            <ul class="nav nav-tabs nav-fill" id="transferTypeTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold" id="single-tab" data-bs-toggle="tab" 
+                            data-bs-target="#single-transfers" type="button" role="tab">
+                        <i class="bi bi-arrow-left-right me-2"></i>
+                        Одиночные переносы
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="bulk-tab" data-bs-toggle="tab" 
+                            data-bs-target="#bulk-transfers" type="button" role="tab">
+                        <i class="bi bi-stack me-2"></i>
+                        Массовые переносы
+                    </button>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="card shadow-lg border-0">
+            <div class="card-header text-white py-3">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list me-2"></i>
+                    <span id="currentTabTitle">Одиночные переносы</span>
+                </h5>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="tab-content" id="transferTypeTabContent">
+                    <!-- Single Transfers Tab -->
+                    <div class="tab-pane fade show active" id="single-transfers" role="tabpanel">
+                        <!-- Filters -->
+                        <div class="p-3 bg-light border-bottom">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <select class="form-select" id="singleStatusFilter">
+                                        <option value="">Все статусы</option>
+                                        <option value="completed">Завершено</option>
+                                        <option value="running">Выполняется</option>
+                                        <option value="error">Ошибка</option>
+                                        <option value="cancelled">Отменено</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" class="form-select" id="singleSourceFilter" 
+                                           placeholder="Фильтр по исходному email">
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-primary w-100" id="applySingleFilters">
+                                        <i class="bi bi-funnel me-1"></i>
+                                        Применить фильтры
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Single Transfers Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>ВРЕМЯ</th>
+                                        <th>ОТКУДА</th>
+                                        <th>КУДА</th>
+                                        <th>СООБЩЕНИЙ</th>
+                                        <th>СТАТУС</th>
+                                        <th>ДЕЙСТВИЯ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="singleHistoryTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5">
+                                            <div class="text-muted">
+                                                <i class="bi bi-hourglass-split display-6"></i>
+                                                <p class="mt-2 mb-0">История одиночных переносов пуста</p>
+                                                <a href="/single" class="btn btn-outline-primary mt-2">
+                                                    <i class="bi bi-plus-lg me-1"></i>
+                                                    Создать первый перенос
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Single Pagination -->
+                        <div class="card-footer bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="text-muted">
+                                    Показано <span id="singleShowingCount">0</span> из <span id="singleTotalCount">0</span>
+                                </div>
+                                <nav>
+                                    <ul class="pagination pagination-sm mb-0" id="singlePagination">
+                                        <li class="page-item disabled">
+                                            <span class="page-link">Страница 1</span>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bulk Transfers Tab -->
+                    <div class="tab-pane fade" id="bulk-transfers" role="tabpanel">
+                        <!-- Filters -->
+                        <div class="p-3 bg-light border-bottom">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <select class="form-select" id="bulkStatusFilter">
+                                        <option value="">Все статусы</option>
+                                        <option value="completed">Завершено</option>
+                                        <option value="running">Выполняется</option>
+                                        <option value="error">Ошибка</option>
+                                        <option value="cancelled">Отменено</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" class="form-select" id="bulkNameFilter" 
+                                           placeholder="Фильтр по названию массового переноса">
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-primary w-100" id="applyBulkFilters">
+                                        <i class="bi bi-funnel me-1"></i>
+                                        Применить фильтры
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bulk Transfers Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>НАЗВАНИЕ</th>
+                                        <th>ДАТА СОЗДАНИЯ</th>
+                                        <th>ПЕРЕНОСОВ</th>
+                                        <th>ЗАВЕРШЕНО</th>
+                                        <th>ОШИБОК</th>
+                                        <th>СТАТУС</th>
+                                        <th>ДЕЙСТВИЯ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bulkHistoryTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5">
+                                            <div class="text-muted">
+                                                <i class="bi bi-stack display-6"></i>
+                                                <p class="mt-2 mb-0">История массовых переносов пуста</p>
+                                                <a href="/bulk" class="btn btn-outline-primary mt-2">
+                                                    <i class="bi bi-plus-lg me-1"></i>
+                                                    Создать первый массовый перенос
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Bulk Pagination -->
+                        <div class="card-footer bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="text-muted">
+                                    Показано <span id="bulkShowingCount">0</span> из <span id="bulkTotalCount">0</span>
+                                </div>
+                                <nav>
+                                    <ul class="pagination pagination-sm mb-0" id="bulkPagination">
+                                        <li class="page-item disabled">
+                                            <span class="page-link">Страница 1</span>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Details Modal -->
+<div class="modal fade" id="transferDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Детали переноса</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="transferDetailsContent">
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Transfer Details Modal -->
+<div class="modal fade" id="bulkDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Детали массового переноса</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="bulkDetailsContent">
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alertContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+<script>
+class UniversalHistoryApp {
+    constructor() {
+        this.singlePage = 1;
+        this.bulkPage = 1;
+        this.pageSize = 10;
+        this.activeTab = 'single';
+        this.init();
+    }
+    
+    init() {
+        this.bindEvents();
+        this.loadSingleHistory();
+    }
+    
+    bindEvents() {
+        // Tab switching
+        document.getElementById('single-tab').addEventListener('click', () => {
+            this.activeTab = 'single';
+            document.getElementById('currentTabTitle').textContent = 'Одиночные переносы';
+            this.loadSingleHistory();
+        });
+        
+        document.getElementById('bulk-tab').addEventListener('click', () => {
+            this.activeTab = 'bulk';
+            document.getElementById('currentTabTitle').textContent = 'Массовые переносы';
+            this.loadBulkHistory();
+        });
+        
+        // Filters
+        document.getElementById('applySingleFilters').addEventListener('click', () => {
+            this.singlePage = 1;
+            this.loadSingleHistory();
+        });
+        
+        document.getElementById('applyBulkFilters').addEventListener('click', () => {
+            this.bulkPage = 1;
+            this.loadBulkHistory();
+        });
+    }
+    
+    async loadSingleHistory() {
+        try {
+            const status = document.getElementById('singleStatusFilter').value;
+            const sourceEmail = document.getElementById('singleSourceFilter').value;
+            
+            let url = `/api/transfers/history?page=${this.singlePage}&limit=${this.pageSize}`;
+            if (status) url += `&status=${status}`;
+            if (sourceEmail) url += `&source_email=${encodeURIComponent(sourceEmail)}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (response.ok && data.transfers) {
+                this.updateSingleTable(data.transfers);
+                this.updateSinglePagination(data.total || 0);
+            }
+        } catch (error) {
+            console.error('Failed to load single history:', error);
+        }
+    }
+    
+    async loadBulkHistory() {
+        try {
+            const status = document.getElementById('bulkStatusFilter').value;
+            const name = document.getElementById('bulkNameFilter').value;
+            
+            let url = `/api/bulk-transfer/status/all?page=${this.bulkPage}&limit=${this.pageSize}`;
+            if (status) url += `&status=${status}`;
+            if (name) url += `&name=${encodeURIComponent(name)}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (response.ok && data.bulk_transfers) {
+                this.updateBulkTable(data.bulk_transfers);
+                this.updateBulkPagination(data.total || 0);
+            }
+        } catch (error) {
+            console.error('Failed to load bulk history:', error);
+            // Show empty state if API doesn't exist yet
+            this.updateBulkTable([]);
+        }
+    }
+    
+    updateSingleTable(transfers) {
+        const tbody = document.getElementById('singleHistoryTableBody');
+        
+        if (transfers.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-hourglass-split display-6"></i>
+                            <p class="mt-2 mb-0">История одиночных переносов пуста</p>
+                            <a href="/single" class="btn btn-outline-primary mt-2">
+                                <i class="bi bi-plus-lg me-1"></i>
+                                Создать первый перенос
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = transfers.map(transfer => {
+            const createdAt = new Date(transfer.created_at).toLocaleString();
+            const statusBadge = this.getStatusBadge(transfer.status);
+            
+            return `
+                <tr>
+                    <td><small>${createdAt}</small></td>
+                    <td>
+                        <div class="text-truncate" style="max-width: 200px;" title="${this.escapeHtml(transfer.source_email)}">
+                            ${this.escapeHtml(transfer.source_email)}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="text-truncate" style="max-width: 200px;" title="${this.escapeHtml(transfer.target_email)}">
+                            ${this.escapeHtml(transfer.target_email)}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${transfer.total_messages || 0}</span>
+                        ${transfer.transferred_messages ? `<br><small class="text-muted">${transfer.transferred_messages} перенесено</small>` : ''}
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm" onclick="universalHistoryApp.viewSingleDetails('${transfer.transfer_id}')" title="Просмотр деталей">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    updateBulkTable(bulkTransfers) {
+        const tbody = document.getElementById('bulkHistoryTableBody');
+        
+        if (bulkTransfers.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-stack display-6"></i>
+                            <p class="mt-2 mb-0">История массовых переносов пуста</p>
+                            <a href="/bulk" class="btn btn-outline-primary mt-2">
+                                <i class="bi bi-plus-lg me-1"></i>
+                                Создать первый массовый перенос
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = bulkTransfers.map(bulk => {
+            const createdAt = new Date(bulk.created_at).toLocaleString();
+            const statusBadge = this.getStatusBadge(bulk.status);
+            const progress = bulk.total_transfers > 0 ? Math.round((bulk.completed_transfers / bulk.total_transfers) * 100) : 0;
+            
+            return `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${this.escapeHtml(bulk.name)}</div>
+                        <small class="text-muted">${bulk.bulk_id}</small>
+                    </td>
+                    <td><small>${createdAt}</small></td>
+                    <td><span class="badge bg-info">${bulk.total_transfers || 0}</span></td>
+                    <td>
+                        <span class="badge bg-success">${bulk.completed_transfers || 0}</span>
+                        ${bulk.total_transfers > 0 ? `<br><small class="text-muted">${progress}%</small>` : ''}
+                    </td>
+                    <td><span class="badge bg-danger">${bulk.failed_transfers || 0}</span></td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="universalHistoryApp.viewBulkDetails('${bulk.bulk_id}')" title="Просмотр деталей">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            ${bulk.status === 'running' ? `
+                                <button class="btn btn-outline-danger" onclick="universalHistoryApp.cancelBulk('${bulk.bulk_id}')" title="Отменить">
+                                    <i class="bi bi-stop-fill"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    updateSinglePagination(total) {
+        const totalPages = Math.ceil(total / this.pageSize);
+        document.getElementById('singleShowingCount').textContent = Math.min(this.pageSize, total);
+        document.getElementById('singleTotalCount').textContent = total;
+        
+        this.updatePaginationElement('singlePagination', this.singlePage, totalPages, (page) => {
+            this.singlePage = page;
+            this.loadSingleHistory();
+        });
+    }
+    
+    updateBulkPagination(total) {
+        const totalPages = Math.ceil(total / this.pageSize);
+        document.getElementById('bulkShowingCount').textContent = Math.min(this.pageSize, total);
+        document.getElementById('bulkTotalCount').textContent = total;
+        
+        this.updatePaginationElement('bulkPagination', this.bulkPage, totalPages, (page) => {
+            this.bulkPage = page;
+            this.loadBulkHistory();
+        });
+    }
+    
+    updatePaginationElement(elementId, currentPage, totalPages, changePageCallback) {
+        const pagination = document.getElementById(elementId);
+        if (totalPages <= 1) {
+            pagination.innerHTML = '<li class="page-item disabled"><span class="page-link">Страница 1</span></li>';
+            return;
+        }
+        
+        let paginationHtml = '';
+        
+        // Previous button
+        if (currentPage > 1) {
+            paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); (${changePageCallback})(${currentPage - 1})">Назад</a></li>`;
+        }
+        
+        // Page numbers
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+            const active = i === currentPage ? 'active' : '';
+            paginationHtml += `<li class="page-item ${active}"><a class="page-link" href="#" onclick="event.preventDefault(); (${changePageCallback})(${i})">${i}</a></li>`;
+        }
+        
+        // Next button
+        if (currentPage < totalPages) {
+            paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); (${changePageCallback})(${currentPage + 1})">Вперед</a></li>`;
+        }
+        
+        pagination.innerHTML = paginationHtml;
+    }
+    
+    getStatusBadge(status) {
+        const badges = {
+            completed: '<span class="badge bg-success status-badge">Завершено</span>',
+            running: '<span class="badge bg-primary status-badge">Выполняется</span>',
+            error: '<span class="badge bg-danger status-badge">Ошибка</span>',
+            cancelled: '<span class="badge bg-warning status-badge">Отменено</span>',
+            pending: '<span class="badge bg-secondary status-badge">Ожидание</span>'
+        };
+        return badges[status] || '<span class="badge bg-secondary status-badge">Неизвестно</span>';
+    }
+    
+    async viewSingleDetails(transferId) {
+        // Implementation for single transfer details
+        console.log('View single transfer details:', transferId);
+    }
+    
+    async viewBulkDetails(bulkId) {
+        // Implementation for bulk transfer details
+        console.log('View bulk transfer details:', bulkId);
+    }
+    
+    async cancelBulk(bulkId) {
+        if (!confirm('Вы уверены, что хотите отменить массовый перенос?')) {
+            return;
+        }
+        console.log('Cancel bulk transfer:', bulkId);
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// Initialize app
+document.addEventListener('DOMContentLoaded', () => {
+    window.universalHistoryApp = new UniversalHistoryApp();
+});
+</script>
+
+<style>
+/* Enhanced Tab Styling */
+.nav-tabs {
+    border-bottom: 3px solid #e9ecef;
+    margin-bottom: 0;
+    background: linear-gradient(to right, #f8f9fa, #e9ecef);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.nav-tabs .nav-link {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-bottom: none;
+    color: #495057;
+    padding: 1rem 2rem;
+    margin-right: 4px;
+    border-radius: 12px 12px 0 0;
+    transition: all 0.3s ease;
+    font-weight: 700;
+    position: relative;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.nav-tabs .nav-link:hover {
+    background: white;
+    color: var(--primary);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    border-color: var(--primary);
+}
+
+.nav-tabs .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    border-color: #667eea;
+    transform: translateY(-6px);
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    z-index: 10;
+}
+
+.nav-tabs .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Additional spacing and separation */
+.tab-content {
+    margin-top: 1rem;
+}
+
+.tab-pane {
+    min-height: 400px;
+}
+
+/* Better filter styling */
+.bg-light.border-bottom {
+    background: linear-gradient(to right, #f8f9fa, #e9ecef) !important;
+    border-bottom: 2px solid #dee2e6 !important;
+}
+
+/* Uniform form control heights */
+.form-select,
+.form-control,
+.btn {
+    height: 38px;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: 0.375rem;
+}
+
+.form-select {
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+}
+
+.table thead th {
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    padding: 1rem 0.75rem;
+}
+
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background: rgba(102, 126, 234, 0.05);
+    transform: scale(1.01);
+}
+
+.table tbody td {
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+    border-color: #f8f9fa;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+}
+
+.pagination {
+    margin: 0;
+}
+
+.page-link {
+    border-radius: 6px;
+    margin: 0 2px;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+}
+
+.text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
+{% endblock %}

@@ -1,226 +1,255 @@
-# Gmail Transfer Tool - Инструмент переноса почты Gmail
+# Gmail Transfer Tool
 
-🚀 **Профессиональный инструмент для переноса почты между сотрудниками в Google Workspace**
+Инструмент для переноса почты между сотрудниками в Google Workspace с веб-интерфейсом, историей переносов и возможностью массовых операций.
 
-## 📋 Описание
+## 🚀 Возможности
 
-Этот инструмент позволяет полностью перенести почту одного сотрудника другому в среде Google Workspace. Поддерживает перенос сообщений с сохранением меток, структуры и метаданных.
+### ✉️ Перенос почты
+- **Одиночный перенос** между двумя пользователями
+- **Массовый перенос** десятков ящиков одновременно
+- **Фильтрация** сообщений по дате, отправителю, теме, вложениям
+- **Лимиты** на количество переносимых сообщений
+- **Real-time прогресс** с WebSocket обновлениями
 
-## ✨ Возможности
+### 📊 История и отчетность
+- **База данных** всех переносов с детальной статистикой
+- **Фильтрация и поиск** по истории переносов
+- **Статистика** успешных/неудачных операций
+- **Топ источников** переносов
 
-- ✅ **Полный перенос почты** между аккаунтами Google Workspace
-- ✅ **Сохранение меток** и структуры папок  
-- ✅ **Фильтрация сообщений** с помощью Gmail Query Language
-- ✅ **Пакетная обработка** с контролем скорости
-- ✅ **Подробное логирование** процесса переноса
-- ✅ **Прогресс-бар** для отслеживания процесса
-- ✅ **Статистика** почтовых ящиков
-- ✅ **Пробный режим** для оценки объема работ
-- ✅ **Обработка ошибок** и продолжение работы
+### 🎯 Веб-интерфейс
+- **Современный UI** с Bootstrap 5
+- **Адаптивный дизайн** для мобильных устройств
+- **Живые обновления** прогресса переносов
+- **Валидация** входных данных
 
-## 🛠 Требования
+## 📋 Требования
 
-- Python 3.7+
-- Google Workspace с правами администратора
-- Сервисный аккаунт Google Cloud с делегированием прав
+- Google Workspace админ аккаунт
+- Service Account с domain-wide delegation
+- Docker и Docker Compose
 
-## 📦 Установка
+## ⚡ Быстрый старт
 
-1. **Клонируйте репозиторий:**
-   ```bash
-   git clone <repository-url>
-   cd gmail_transfer
-   ```
+### 1. Настройка Google Cloud
 
-2. **Создайте виртуальное окружение:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # На Windows: venv\\Scripts\\activate
-   ```
+1. Создайте проект в [Google Cloud Console](https://console.cloud.google.com/)
+2. Включите Gmail API
+3. Создайте Service Account и скачайте JSON ключ
+4. Настройте domain-wide delegation в Google Admin Console
 
-3. **Установите зависимости:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Настройка делегирования:**
+- Откройте [Google Admin Console](https://admin.google.com/)
+- Перейдите в Security → API controls → Domain-wide delegation
+- Добавьте Client ID из JSON файла
+- Укажите OAuth scopes:
+  ```
+  https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.insert,https://www.googleapis.com/auth/gmail.modify,https://www.googleapis.com/auth/gmail.labels
+  ```
 
-4. **Настройте конфигурацию:**
-   ```bash
-   cp env_example.txt .env
-   ```
-
-## ⚙️ Настройка Google Cloud и Workspace
-
-### 1. Создание сервисного аккаунта
-
-1. Перейдите в [Google Cloud Console](https://console.cloud.google.com/)
-2. Создайте новый проект или выберите существующий
-3. Включите Gmail API:
-   - Перейдите в "APIs & Services" → "Library"
-   - Найдите "Gmail API" и включите его
-4. Создайте сервисный аккаунт:
-   - Перейдите в "IAM & Admin" → "Service Accounts"
-   - Нажмите "Create Service Account"
-   - Заполните название и описание
-   - Скачайте JSON ключ
-
-### 2. Настройка делегирования в Google Workspace
-
-1. Перейдите в [Google Admin Console](https://admin.google.com/)
-2. Откройте "Security" → "API controls" → "Domain-wide delegation"
-3. Нажмите "Add new" и добавьте:
-   - **Client ID**: из JSON файла сервисного аккаунта
-   - **OAuth scopes**:
-     ```
-     https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.insert,https://www.googleapis.com/auth/gmail.modify,https://www.googleapis.com/auth/gmail.labels
-     ```
-
-### 3. Конфигурация .env файла
-
-Отредактируйте файл `.env`:
-
-```env
-# Путь к JSON файлу сервисного аккаунта
-SERVICE_ACCOUNT_FILE=/path/to/your/service-account-key.json
-
-# Ваш домен Google Workspace
-WORKSPACE_DOMAIN=yourcompany.com
-
-# Уровень логирования
-LOG_LEVEL=INFO
-
-# Настройки API
-BATCH_SIZE=100
-API_DELAY=0.1
-```
-
-## 🚀 Использование
-
-### Основные команды
-
-1. **Полный перенос почты:**
-   ```bash
-   python main.py old.employee@company.com new.employee@company.com
-   ```
-
-2. **Перенос только непрочитанных писем:**
-   ```bash
-   python main.py old.employee@company.com new.employee@company.com --query "is:unread"
-   ```
-
-3. **Ограничение количества писем:**
-   ```bash
-   python main.py old.employee@company.com new.employee@company.com --max-messages 1000
-   ```
-
-4. **Пробный запуск (без фактического переноса):**
-   ```bash
-   python main.py old.employee@company.com new.employee@company.com --dry-run
-   ```
-
-5. **Статистика почтового ящика:**
-   ```bash
-   python main.py --stats employee@company.com
-   ```
-
-### Дополнительные опции
-
-- `--query "search"` - фильтр сообщений (Gmail Query Language)
-- `--max-messages N` - максимальное количество сообщений
-- `--no-transfer-label` - не создавать метку переноса
-- `--dry-run` - пробный запуск без переноса
-- `--stats EMAIL` - статистика почтового ящика
-
-### Примеры поисковых запросов
+### 2. Установка
 
 ```bash
-# Только важные письма
---query "is:important"
+# Клонируйте репозиторий
+git clone https://github.com/noragami90/gmail_transfer.git
+cd gmail_transfer
 
-# Письма от конкретного отправителя
---query "from:boss@company.com"
+# Создайте необходимые файлы
+cp env_example.txt .env
+cp your-service-account.json service-account-key.json
 
-# Письма за последний месяц
---query "newer_than:1m"
-
-# Письма с вложениями
---query "has:attachment"
-
-# Комбинированный запрос
---query "is:unread has:attachment -in:spam"
+# Отредактируйте .env файл
+nano .env
 ```
 
-## 📊 Логирование
+### 3. Запуск
 
-Логи сохраняются в папке `logs/` с именами вида `gmail_transfer_YYYYMMDD.log`.
+**Продакшен (готовый образ):**
+```bash
+docker-compose up -d
+```
 
-Уровни логирования:
-- **DEBUG**: Детальная информация о каждой операции
-- **INFO**: Общий прогресс и важные события  
-- **WARNING**: Предупреждения о проблемах
-- **ERROR**: Ошибки, которые не останавливают работу
+**Разработка (локальная сборка):**
+```bash
+docker-compose -f docker-compose.dev.yml up -d --build
+```
+
+### 4. Использование
+
+- **Продакшен**: http://localhost:5000
+- **Разработка**: http://localhost:5001
+
+## 📖 Использование
+
+### Одиночный перенос
+
+1. Откройте главную страницу
+2. Введите email исходного и целевого сотрудника
+3. Настройте фильтры (опционально)
+4. Нажмите "Начать перенос"
+
+### Массовый перенос
+
+1. Перейдите на страницу "Массовый перенос"
+2. Введите название операции
+3. Заполните список переносов в формате:
+   ```
+   old1@company.com -> new1@company.com
+   old2@company.com -> new2@company.com after:2024/01/01
+   old3@company.com -> new3@company.com has:attachment max:1000
+   # Комментарии поддерживаются
+   ```
+4. Выберите количество параллельных переносов
+5. Запустите массовый перенос
+
+### Фильтры Gmail
+
+Поддерживаются все стандартные фильтры Gmail:
+- `after:2024/01/01` - сообщения после даты
+- `before:2024/12/31` - сообщения до даты  
+- `from:boss@company.com` - от конкретного отправителя
+- `to:team@company.com` - к конкретному получателю
+- `subject:urgent` - по теме сообщения
+- `has:attachment` - только с вложениями
+- `is:important` - важные сообщения
+- `label:work` - с определенной меткой
+
+## 🔧 Конфигурация
+
+### Environment переменные (.env)
+
+```bash
+# Service Account (обязательно)
+SERVICE_ACCOUNT_FILE=/app/service-account-key.json
+
+# Redis (опционально)  
+REDIS_PASSWORD=your_redis_password
+
+# Дополнительные настройки
+MAX_MESSAGES_DEFAULT=10000
+CONCURRENT_WORKERS=3
+```
+
+### Docker Compose
+
+**Продакшен** (`docker-compose.yml`):
+- Использует готовый образ `ghcr.io/noragami90/gmail_transfer:latest`
+- Порт 5000
+- Persistent данные в volumes
+
+**Разработка** (`docker-compose.dev.yml`):
+- Собирает образ локально
+- Порт 5001  
+- Hot reload кода
+
+## 📊 API
+
+### Основные эндпоинты
+
+```
+GET  /                          - Главная страница
+GET  /bulk                      - Массовый перенос
+GET  /history                   - История переносов
+
+POST /api/start-transfer        - Запуск переноса
+POST /api/bulk-transfer/create  - Создание массового переноса
+POST /api/bulk-transfer/start   - Запуск массового переноса
+GET  /api/transfers/history     - История переносов
+GET  /api/transfers/stats       - Статистика переносов
+```
+
+### WebSocket события
+
+```javascript
+// Подключение к прогрессу переноса
+socket.emit('join_task', { task_id: 'your-task-id' });
+
+// Подключение к массовому переносу  
+socket.emit('join_bulk_task', { bulk_id: 'your-bulk-id' });
+
+// События прогресса
+socket.on('transfer_progress', (data) => { ... });
+socket.on('bulk_transfer_progress', (data) => { ... });
+```
 
 ## 🔒 Безопасность
 
-- Храните JSON ключ сервисного аккаунта в безопасном месте
-- Не коммитьте `.env` файл в репозиторий
-- Регулярно ротируйте ключи сервисного аккаунта
-- Используйте минимально необходимые права доступа
+- Service Account файлы монтируются read-only
+- Redis с паролем
+- Валидация всех входных данных
+- Логирование всех операций
+- Healthcheck для контейнеров
 
-## ⚠️ Ограничения
+## 🐛 Отладка
 
-- **Квоты API**: Gmail API имеет лимиты на количество запросов
-- **Размер писем**: Очень большие письма могут вызывать проблемы
-- **Системные метки**: Некоторые системные метки не переносятся
-- **Порядок сообщений**: Порядок может отличаться от оригинального
-
-## 🐛 Устранение неполадок
-
-### Частые ошибки
-
-1. **403 Forbidden**
-   - Проверьте настройки делегирования в Google Workspace
-   - Убедитесь, что сервисный аккаунт имеет необходимые права
-
-2. **404 Not Found**
-   - Проверьте корректность email адресов
-   - Убедитесь, что пользователи существуют в вашем домене
-
-3. **429 Too Many Requests**
-   - Увеличьте `API_DELAY` в `.env` файле
-   - Уменьшите `BATCH_SIZE`
-
-4. **Ошибки импорта**
-   - Некоторые сообщения могут иметь нестандартный формат
-   - Проверьте логи для деталей
-
-### Проверка настроек
+### Просмотр логов
 
 ```bash
-# Проверьте, что сервисный аккаунт может получить доступ
-python -c "from gmail_client import GmailClient; client = GmailClient(); print('✅ Подключение успешно')"
+# Все логи
+docker-compose logs -f
 
-# Проверьте список меток пользователя
-python main.py --stats user@yourcompany.com
+# Только приложение
+docker-compose logs -f gmail-transfer
+
+# Последние 100 строк
+docker-compose logs --tail=100 gmail-transfer
 ```
 
-## 📈 Производительность
+### Проверка здоровья
 
-При переносе больших объемов почты:
+```bash
+curl http://localhost:5000/api/health
+```
 
-1. **Используйте фильтры** для переноса по частям
-2. **Мониторьте квоты** API в Google Cloud Console
-3. **Настройте задержки** между запросами
-4. **Запускайте в tmux/screen** для долгих операций
+### Подключение к Redis
+
+```bash
+docker-compose exec redis redis-cli
+```
+
+## 🛠️ Разработка
+
+### Структура проекта
+
+```
+├── app.py              # Основное Flask приложение
+├── email_transfer.py   # Логика переноса почты
+├── gmail_client.py     # Gmail API клиент
+├── database.py         # SQLite база данных
+├── bulk_transfer.py    # Массовые переносы
+├── logger.py          # Настройка логирования
+├── templates/         # HTML шаблоны
+├── static/           # CSS/JS файлы
+├── data/             # База данных SQLite
+└── logs/             # Файлы логов
+```
+
+### Локальная разработка
+
+```bash
+# Сборка и запуск dev версии
+docker-compose -f docker-compose.dev.yml up -d --build
+
+# Пересборка после изменений
+docker-compose -f docker-compose.dev.yml up -d --build --force-recreate
+```
+
+## 📈 Мониторинг
+
+- Логи в папке `./logs`
+- База данных в `./data/transfers.db`
+- Метрики через API `/api/transfers/stats`
+- Healthcheck endpoint `/api/health`
 
 ## 🤝 Поддержка
 
 При возникновении проблем:
 
-1. Проверьте логи в папке `logs/`
-2. Убедитесь в корректности настроек
-3. Попробуйте пробный запуск с `--dry-run`
-4. Проверьте права доступа в Google Workspace
+1. Проверьте логи: `docker-compose logs gmail-transfer`
+2. Убедитесь в правильности настройки Service Account
+3. Проверьте делегирование в Google Admin Console
+4. Включен ли Gmail API в проекте
 
 ## 📝 Лицензия
 
-Этот проект предназначен для использования в корпоративных средах Google Workspace.
+MIT License - используйте свободно для личных и коммерческих проектов.
