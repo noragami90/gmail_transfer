@@ -1,26 +1,29 @@
 #!/bin/bash
 set -e
 
-# Создаем service account файл из переменной окружения если он передан
-if [ -n "$SERVICE_ACCOUNT_JSON" ]; then
-    echo "Creating service account file from environment variable..."
-    echo "$SERVICE_ACCOUNT_JSON" > /app/service-account-key.json
+# Создаем service account файл из base64 переменной окружения
+if [ -n "$SERVICE_ACCOUNT_BASE64" ]; then
+    echo "Creating service account file from base64 environment variable..."
+    echo "$SERVICE_ACCOUNT_BASE64" | base64 -d > /app/service-account-key.json
     export SERVICE_ACCOUNT_FILE="/app/service-account-key.json"
+    echo "Service account file created successfully"
 fi
 
-# Проверяем Docker Secrets
-if [ -f "/run/secrets/service_account" ]; then
-    echo "Using service account from Docker Secrets..."
-    export SERVICE_ACCOUNT_FILE="/run/secrets/service_account"
+# Создаем service account файл из JSON переменной окружения (для совместимости)
+if [ -n "$SERVICE_ACCOUNT_JSON" ]; then
+    echo "Creating service account file from JSON environment variable..."
+    echo "$SERVICE_ACCOUNT_JSON" > /app/service-account-key.json
+    export SERVICE_ACCOUNT_FILE="/app/service-account-key.json"
+    echo "Service account file created successfully"
 fi
 
 # Проверяем наличие service account файла
 if [ ! -f "$SERVICE_ACCOUNT_FILE" ]; then
     echo "Warning: Service account file not found at $SERVICE_ACCOUNT_FILE"
-    echo "Please:"
-    echo "1. Mount the file as volume: -v ./service-account-key.json:/app/service-account-key.json"
-    echo "2. Use Docker Secrets (recommended for production)"
-    echo "3. Set SERVICE_ACCOUNT_JSON environment variable"
+    echo "Please set one of:"
+    echo "1. SERVICE_ACCOUNT_BASE64 - base64 encoded service account JSON (recommended for production)"
+    echo "2. SERVICE_ACCOUNT_JSON - raw JSON content"
+    echo "3. Mount file as volume: -v ./service-account-key.json:/app/service-account-key.json"
 fi
 
 # Запускаем приложение
