@@ -1,0 +1,43 @@
+# Development Dockerfile для Gmail Transfer Tool
+FROM python:3.11-slim-bullseye
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создаем пользователя
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем requirements
+COPY requirements.txt web_requirements.txt ./
+
+# Устанавливаем Python зависимости
+RUN cat requirements.txt web_requirements.txt > combined_requirements.txt && \
+    pip install --no-cache-dir -r combined_requirements.txt && \
+    rm combined_requirements.txt
+
+# Копируем код
+COPY . .
+
+# Создаем необходимые директории и настраиваем права
+RUN mkdir -p logs static/css static/js templates && \
+    chown -R appuser:appuser /app
+
+# Переключаемся на пользователя
+USER appuser
+
+# Переменные окружения для разработки
+ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
+ENV LOG_LEVEL=DEBUG
+
+# Порт
+EXPOSE 5000
+
+# Команда для разработки (с автоперезагрузкой)
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000", "--debug"]
