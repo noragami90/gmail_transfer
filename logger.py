@@ -55,10 +55,14 @@ def setup_logger(name: str = __name__) -> logging.Logger:
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
     
-    # Handler для файла
-    log_filename = f"{logs_dir}/gmail_transfer_{datetime.now().strftime('%Y%m%d')}.log"
-    file_handler = logging.FileHandler(log_filename, encoding='utf-8')
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
+    # Handler для файла (только если папка доступна для записи)
+    try:
+        log_filename = f"{logs_dir}/gmail_transfer_{datetime.now().strftime('%Y%m%d')}.log"
+        file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+    except (PermissionError, OSError) as e:
+        # Если не можем писать в файл, логируем только в консоль
+        logger.warning(f"Cannot write to log file {log_filename}: {e}. Logging to console only.")
     
     return logger

@@ -13,8 +13,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - .env
-    volumes:
-      - ./logs:/app/logs
+    # volumes:
+      # - ./logs:/app/logs  # Убрано для продакшена - логи пишутся в контейнер
     depends_on:
       - redis
     restart: unless-stopped
