@@ -58,4 +58,6 @@ networks:
 
 secrets:
   service_account:
-    file: ./service-account-key.json
+    # Локальная разработка: file: ./service-account-key.json
+    # Продакшен: external: true (создать secret заранее)
+    external: true
