@@ -38,6 +38,10 @@ RUN cat requirements.txt web_requirements.txt > combined_requirements.txt && \
 # Копируем исходный код
 COPY . .
 
+# Копируем и настраиваем entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Создаем необходимые директории
 RUN mkdir -p logs static/css static/js templates && \
     chown -R appuser:appuser /app
@@ -51,6 +55,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Открываем порт
 EXPOSE $PORT
+
+# Entrypoint для настройки service account
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Команда запуска
 CMD ["python", "app.py"]

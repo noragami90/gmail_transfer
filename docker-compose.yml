@@ -11,11 +11,13 @@ services:
       - FLASK_ENV=production
       - PORT=5000
       - REDIS_URL=redis://redis:6379/0
+      - SERVICE_ACCOUNT_FILE=/run/secrets/service_account
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs
-      - ./service-account-key.json:/app/service-account-key.json:ro
+    secrets:
+      - service_account
     depends_on:
       - redis
     restart: unless-stopped
@@ -53,3 +55,7 @@ volumes:
 networks:
   gmail-transfer-network:
     driver: bridge
+
+secrets:
+  service_account:
+    file: ./service-account-key.json

@@ -1,9 +1,11 @@
 # Скопируйте содержимое этого файла в .env и заполните необходимые данные
 
 # Путь к файлу JSON с ключами сервисного аккаунта
-# Для Docker: всегда используйте /app/service-account-key.json
-# Для локального запуска: укажите реальный путь к файлу
-SERVICE_ACCOUNT_FILE=/app/service-account-key.json
+# Автоматически устанавливается Docker entrypoint:
+# - Docker Secrets: /run/secrets/service_account (рекомендуется)
+# - Volume mount: /app/service-account-key.json
+# - Environment: создается из SERVICE_ACCOUNT_JSON
+# SERVICE_ACCOUNT_FILE=/app/service-account-key.json
 
 # Домен вашего Google Workspace
 WORKSPACE_DOMAIN=yourcompany.com
