@@ -3,12 +3,6 @@
 # Service Account для Google API
 # Способ 1: Base64 кодированный JSON (рекомендуется для продакшена)
 # SERVICE_ACCOUNT_BASE64=ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAi...
-#
-# Способ 2: Прямой JSON (для разработки)
-# SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
-#
-# Способ 3: Файл (автоматически устанавливается)
-# SERVICE_ACCOUNT_FILE=/app/service-account-key.json
 
 # Домен вашего Google Workspace
 WORKSPACE_DOMAIN=yourcompany.com

@@ -2,16 +2,16 @@
 
 # Скрипт для генерации base64 из service account файла
 
-if [ ! -f "service-account-key.json" ]; then
-    echo "❌ Файл service-account-key.json не найден!"
+if [ ! -f "gmailtogmail-7aa3b4223cbe.json" ]; then
+    echo "❌ Файл gmailtogmail-7aa3b4223cbe.json не найден!"
     echo "Поместите ваш service account файл в текущую директорию"
     exit 1
 fi
 
-echo "🔐 Генерация base64 из service-account-key.json..."
+echo "🔐 Генерация base64 из gmailtogmail-7aa3b4223cbe.json..."
 echo ""
 
-BASE64_CONTENT=$(base64 -i service-account-key.json)
+BASE64_CONTENT=$(base64 -i gmailtogmail-7aa3b4223cbe.json)
 
 echo "✅ Base64 сгенерирован! Добавьте в .env файл:"
 echo ""
