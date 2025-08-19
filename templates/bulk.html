@@ -74,6 +74,16 @@ old4@company.com -> new4@company.com has:attachment" required></textarea>
                         <div class="form-text">Больше параллельных переносов = быстрее, но больше нагрузка на API</div>
                     </div>
                     
+                    <div class="mb-3">
+                        <label for="bulkExcludeEmails" class="form-label fw-semibold">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Исключить адреса отправителей
+                        </label>
+                        <textarea class="form-control" id="bulkExcludeEmails" rows="2" 
+                                  placeholder="jira@inlingo.atlassian.net, noreply@github.com, notifications@service.com"></textarea>
+                        <div class="form-text">Письма от этих адресов будут пропущены для всех переносов</div>
+                    </div>
+                    
                     <div class="d-grid gap-2 d-md-flex">
                         <button type="button" class="btn btn-outline-primary" id="validateTransfersBtn">
                             <i class="bi bi-check-circle"></i> Проверить список

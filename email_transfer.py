@@ -24,6 +24,73 @@ class EmailTransfer:
         self.error_count = 0
         self.skipped_count = 0
     
+    def parse_exclude_emails(self, exclude_emails: str) -> List[str]:
+        """
+        Парсит строку исключаемых email адресов
+        
+        Args:
+            exclude_emails: Строка с адресами через запятую или построчно
+            
+        Returns:
+            Список email адресов для исключения
+        """
+        if not exclude_emails:
+            return []
+        
+        # Разделяем по запятым и новым строкам
+        emails = []
+        for part in exclude_emails.replace(',', '\n').split('\n'):
+            email = part.strip().lower()
+            if email and '@' in email:
+                emails.append(email)
+        
+        logger.info(f"Исключаемые адреса: {emails}")
+        return emails
+    
+    def should_exclude_message(self, message_data: Dict[str, Any], exclude_emails: List[str]) -> bool:
+        """
+        Проверяет, нужно ли исключить сообщение из переноса
+        
+        Args:
+            message_data: Данные сообщения от Gmail API
+            exclude_emails: Список исключаемых email адресов
+            
+        Returns:
+            True если сообщение нужно исключить
+        """
+        if not exclude_emails:
+            return False
+        
+        # Получаем заголовки
+        headers = message_data.get('payload', {}).get('headers', [])
+        
+        # Ищем отправителя (From)
+        sender = None
+        for header in headers:
+            if header['name'].lower() == 'from':
+                sender = header['value'].lower()
+                break
+        
+        if not sender:
+            return False
+        
+        # Извлекаем email из строки "Name <email@domain.com>" или просто "email@domain.com"
+        import re
+        email_match = re.search(r'<([^>]+)>|([^\s<>]+@[^\s<>]+)', sender)
+        if email_match:
+            sender_email = (email_match.group(1) or email_match.group(2)).lower()
+            
+            # Проверяем полное совпадение или совпадение домена
+            for exclude_email in exclude_emails:
+                if exclude_email == sender_email:
+                    logger.debug(f"Исключаем письмо от {sender_email} (точное совпадение)")
+                    return True
+                elif exclude_email.startswith('@') and sender_email.endswith(exclude_email):
+                    logger.debug(f"Исключаем письмо от {sender_email} (совпадение домена {exclude_email})")
+                    return True
+        
+        return False
+    
     def get_message_raw(self, user_email: str, message_id: str) -> str:
         """
         Получает raw содержимое сообщения
@@ -253,7 +320,8 @@ class EmailTransfer:
     def transfer_single_message(self, source_user_email: str, target_user_email: str, 
                                message_id: str, transfer_label_id: str = None, 
                                source_labels_map: Dict[str, str] = None,
-                               target_labels_map: Dict[str, str] = None) -> bool:
+                               target_labels_map: Dict[str, str] = None,
+                               exclude_emails: List[str] = None) -> bool:
         """
         Переносит одно сообщение
         
@@ -271,6 +339,11 @@ class EmailTransfer:
         try:
             # Получаем детали сообщения
             message_details = self.gmail_client.get_message_details(source_user_email, message_id)
+            
+            # Проверяем, нужно ли исключить это сообщение
+            if exclude_emails and self.should_exclude_message(message_details, exclude_emails):
+                logger.info(f"Сообщение {message_id} исключено из переноса")
+                return True  # Считаем успешным, но пропускаем
             
             # Получаем raw содержимое
             raw_message = self.get_message_raw(source_user_email, message_id)

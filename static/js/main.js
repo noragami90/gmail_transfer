@@ -325,6 +325,7 @@ class GmailTransferApp {
         const query = document.getElementById('queryFilter').value.trim();
         const maxMessages = document.getElementById('maxMessages').value;
         const createLabel = document.getElementById('createLabel').checked;
+        const excludeEmails = document.getElementById('excludeEmails').value.trim();
         
         if (!sourceEmail || !targetEmail) {
             this.showAlert('warning', 'Введите email адреса исходного и целевого пользователей');
@@ -353,7 +354,8 @@ class GmailTransferApp {
                     target_email: targetEmail,
                     query: query,
                     max_messages: maxMessages ? parseInt(maxMessages) : null,
-                    create_transfer_label: createLabel
+                    create_transfer_label: createLabel,
+                    exclude_emails: excludeEmails
                 })
             });
             

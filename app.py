@@ -122,7 +122,7 @@ class ProgressTracker:
 
 def transfer_emails_async(task_id: str, source_email: str, target_email: str, 
                          query: str = "", max_messages: int = None, 
-                         create_transfer_label: bool = True):
+                         create_transfer_label: bool = True, exclude_emails: str = ""):
     """Асинхронный перенос писем с отслеживанием прогресса"""
     try:
         # Создаем запись в базе данных
@@ -150,6 +150,9 @@ def transfer_emails_async(task_id: str, source_email: str, target_email: str,
         
         # Инициализируем Gmail клиент и трансфер
         transfer = EmailTransfer()
+        
+        # Парсим исключаемые адреса
+        exclude_emails_list = transfer.parse_exclude_emails(exclude_emails)
         
         WebSocketHandler.emit_status(task_id, 'analyzing', 'Анализ почтового ящика...')
         
@@ -207,7 +210,8 @@ def transfer_emails_async(task_id: str, source_email: str, target_email: str,
                 success = transfer.transfer_single_message(
                     source_email, 
                     target_email, 
-                    message['id']
+                    message['id'],
+                    exclude_emails=exclude_emails_list
                 )
                 
                 if success:
@@ -561,6 +565,7 @@ def start_transfer():
         query = data.get('query', '')
         max_messages = data.get('max_messages')
         create_label = data.get('create_transfer_label', True)
+        exclude_emails = data.get('exclude_emails', '')
         
         if not source_email or not target_email:
             return jsonify({'error': 'Source и target email обязательны'}), 400
@@ -571,7 +576,7 @@ def start_transfer():
         # Запускаем перенос в отдельном потоке
         thread = threading.Thread(
             target=transfer_emails_async,
-            args=(task_id, source_email, target_email, query, max_messages, create_label)
+            args=(task_id, source_email, target_email, query, max_messages, create_label, exclude_emails)
         )
         thread.daemon = True
         thread.start()
