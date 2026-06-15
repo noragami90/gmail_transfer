@@ -22,10 +22,16 @@ class BulkTransferManager:
         self.active_bulk_transfers = {}
         self.progress_callbacks = {}
     
-    def create_bulk_transfer(self, name: str, transfers: List[Dict[str, Any]]) -> str:
+    def create_bulk_transfer(self, name: str, transfers: List[Dict[str, Any]],
+                             exclude_emails: str = "") -> str:
         """Создание массового переноса"""
         bulk_id = str(uuid.uuid4())
-        
+
+        # Общий список исключаемых адресов применяется ко всем переносам
+        if exclude_emails:
+            for transfer_data in transfers:
+                transfer_data.setdefault('exclude_emails', exclude_emails)
+
         # Создаем записи в БД
         bulk_data = {
             'id': bulk_id,
@@ -185,35 +191,50 @@ class BulkTransferManager:
                                bulk_id: str) -> bool:
         """Выполнение одного переноса в рамках массового"""
         try:
+            # Уважаем отмену массового переноса
+            bulk_state = self.active_bulk_transfers.get(bulk_id)
+            if bulk_state and bulk_state.get('status') == 'cancelled':
+                db.update_transfer(transfer_id, {
+                    'status': 'cancelled',
+                    'end_time': datetime.now()
+                })
+                return False
+
             # Обновляем статус текущего переноса
-            self.active_bulk_transfers[bulk_id]['current_transfer'] = transfer_data
-            
+            if bulk_state:
+                bulk_state['current_transfer'] = transfer_data
+
             # Обновляем запись в БД
             db.update_transfer(transfer_id, {
                 'status': 'running',
                 'start_time': datetime.now()
             })
-            
+
             logger.info(f"Начинаем перенос {transfer_id}: {transfer_data['source_email']} -> {transfer_data['target_email']}")
-            
+
             # Создаем EmailTransfer
             email_transfer = EmailTransfer()
-            
+
+            # Парсим исключаемые адреса (если заданы для этого переноса)
+            exclude_list = email_transfer.parse_exclude_emails(transfer_data.get('exclude_emails', ''))
+
             # Выполняем перенос
-            result = email_transfer.transfer_emails(
-                source_email=transfer_data['source_email'],
-                target_email=transfer_data['target_email'],
+            result = email_transfer.transfer_all_messages(
+                source_user_email=transfer_data['source_email'],
+                target_user_email=transfer_data['target_email'],
                 query=transfer_data.get('query', ''),
                 max_messages=transfer_data.get('max_messages'),
-                create_transfer_label=transfer_data.get('create_label', True)
+                create_transfer_label=transfer_data.get('create_label', True),
+                exclude_emails=exclude_list
             )
-            
+
             # Обновляем результат в БД
             db.update_transfer(transfer_id, {
                 'status': 'completed',
-                'total_messages': result.get('total_found', 0),
+                'total_messages': result.get('total', 0),
                 'transferred_messages': result.get('transferred', 0),
                 'error_messages': result.get('errors', 0),
+                'skipped_messages': result.get('skipped', 0),
                 'end_time': datetime.now(),
                 'metadata': {
                     **db.get_transfer(transfer_id)['metadata'],

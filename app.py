@@ -78,18 +78,20 @@ class ProgressTracker:
         self.processed = 0
         self.transferred = 0
         self.errors = 0
+        self.skipped = 0
         self.start_time = datetime.now()
-    
+
     def set_total(self, total: int):
         """Устанавливает общее количество сообщений"""
         self.total_messages = total
         self._emit_update()
-    
-    def update_progress(self, transferred: int, errors: int):
+
+    def update_progress(self, transferred: int, errors: int, skipped: int = 0):
         """Обновляет прогресс"""
         self.processed += 1
         self.transferred = transferred
         self.errors = errors
+        self.skipped = skipped
         self._emit_update()
     
     def _emit_update(self):
@@ -108,6 +110,7 @@ class ProgressTracker:
             'processed': self.processed,
             'transferred': self.transferred,
             'errors': self.errors,
+            'skipped': self.skipped,
             'percentage': (self.processed / self.total_messages * 100) if self.total_messages > 0 else 0,
             'elapsed_time': elapsed,
             'estimated_remaining': eta_seconds,
@@ -177,78 +180,109 @@ def transfer_emails_async(task_id: str, source_email: str, target_email: str,
         
         total_messages = len(messages)
         tracker.set_total(total_messages)
-        
+
         # КРИТИЧНО: Обновляем БД с количеством найденных сообщений
         db.update_transfer(task_id, {
             'status': 'running',
             'total_messages': total_messages,
             'start_time': datetime.now()
         })
-        
+
+        # ЭФФЕКТИВНОСТЬ: один раз получаем карты меток и создаём метку переноса,
+        # чтобы не дёргать API меток на каждое письмо
+        WebSocketHandler.emit_status(task_id, 'preparing', 'Подготовка меток...')
+        source_labels = transfer.gmail_client.get_labels(source_email)
+        target_labels = transfer.gmail_client.get_labels(target_email)
+        source_labels_map = {label['id']: label['name'] for label in source_labels}
+        target_labels_map = {label['name']: label['id'] for label in target_labels}
+
+        transfer_label_id = None
+        if create_transfer_label:
+            transfer_label_name = f"Transferred from {source_email}"
+            if transfer_label_name in target_labels_map:
+                transfer_label_id = target_labels_map[transfer_label_name]
+            else:
+                try:
+                    new_label = transfer.gmail_client.create_label(target_email, transfer_label_name)
+                    transfer_label_id = new_label['id']
+                    target_labels_map[transfer_label_name] = transfer_label_id
+                except Exception as e:
+                    logger.warning(f"Не удалось создать метку переноса: {e}")
+
         WebSocketHandler.emit_status(task_id, 'transferring', f'Начинаем перенос {total_messages} сообщений...')
-        
+
         # Принудительно отправляем начальный прогресс
         WebSocketHandler.emit_progress(task_id, {
             'total': total_messages,
             'processed': 0,
             'transferred': 0,
             'errors': 0,
+            'skipped': 0,
             'percentage': 0,
             'elapsed_time': 0,
             'estimated_remaining': 0
         })
-        
+
         # Переносим сообщения
         transferred_count = 0
         error_count = 0
-        
+        skipped_count = 0
+
         for i, message in enumerate(messages):
             if task_id not in active_tasks:  # Проверяем, не отменена ли задача
                 break
-                
+
             try:
-                success = transfer.transfer_single_message(
-                    source_email, 
-                    target_email, 
+                status = transfer.transfer_single_message(
+                    source_email,
+                    target_email,
                     message['id'],
+                    transfer_label_id=transfer_label_id,
+                    source_labels_map=source_labels_map,
+                    target_labels_map=target_labels_map,
                     exclude_emails=exclude_emails_list
                 )
-                
-                if success:
+
+                if status == 'transferred':
                     transferred_count += 1
+                elif status == 'skipped':
+                    skipped_count += 1
                 else:
                     error_count += 1
-                    
+
             except Exception as e:
                 logger.error(f"Ошибка переноса сообщения {message['id']}: {e}")
                 error_count += 1
-            
-            tracker.update_progress(transferred_count, error_count)
-            
+
+            tracker.update_progress(transferred_count, error_count, skipped_count)
+
             # Обновляем БД каждые 10 сообщений
             if i % 10 == 0:
                 db.update_transfer(task_id, {
                     'transferred_messages': transferred_count,
-                    'error_messages': error_count
+                    'error_messages': error_count,
+                    'skipped_messages': skipped_count
                 })
-            
+
             time.sleep(0.1)  # Небольшая задержка
-        
+
         # Завершение
         result = {
             'status': 'completed',
             'total': len(messages),
             'transferred': transferred_count,
             'errors': error_count,
+            'skipped': skipped_count,
             'end_time': datetime.now().isoformat()
         }
-        
+
         # Обновляем запись в БД
         db.update_transfer(task_id, {
             'status': 'completed',
             'total_messages': len(messages),
             'transferred_messages': transferred_count,
             'error_messages': error_count,
+            'skipped_messages': skipped_count,
             'end_time': datetime.now()
         })
         
@@ -256,9 +290,10 @@ def transfer_emails_async(task_id: str, source_email: str, target_email: str,
         active_tasks.pop(task_id, None)
         
         WebSocketHandler.emit_status(
-            task_id, 
-            'completed', 
-            f'Перенос завершен! Перенесено: {transferred_count}, Ошибок: {error_count}'
+            task_id,
+            'completed',
+            f'Перенос завершен! Перенесено: {transferred_count}, '
+            f'Пропущено: {skipped_count}, Ошибок: {error_count}'
         )
         
         logger.info(f"Задача {task_id} завершена: {result}")
@@ -602,6 +637,11 @@ def cancel_transfer():
         
         if task_id in active_tasks:
             active_tasks.pop(task_id)
+            db.update_transfer(task_id, {
+                'status': 'cancelled',
+                'end_time': datetime.now(),
+                'error_message': 'Перенос отменён пользователем'
+            })
             WebSocketHandler.emit_status(task_id, 'cancelled', 'Перенос отменен пользователем')
             return jsonify({'status': 'cancelled'})
         else:
@@ -620,23 +660,64 @@ def get_transfers_history():
         source_email = request.args.get('source_email')
         
         offset = (page - 1) * limit
-        
+
         transfers = db.get_transfers(
             limit=limit,
             offset=offset,
             status=status,
             source_email=source_email
         )
-        
+
+        total = db.get_transfers_count(status=status, source_email=source_email)
         stats = db.get_transfer_stats()
-        
+
         return jsonify({
             'transfers': transfers,
             'stats': stats,
+            'total': total,
             'page': page,
             'limit': limit
         })
-        
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/transfers/<transfer_id>')
+def get_transfer_details(transfer_id):
+    """Детали одного переноса"""
+    try:
+        transfer = db.get_transfer(transfer_id)
+        if transfer:
+            return jsonify(transfer)
+        return jsonify({'error': 'Перенос не найден'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bulk-transfers')
+def get_bulk_transfers_list():
+    """Список массовых переносов с пагинацией (для истории)"""
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 20))
+        status = request.args.get('status')
+        name = request.args.get('name')
+
+        offset = (page - 1) * limit
+
+        bulk_transfers = db.get_bulk_transfers(
+            limit=limit, offset=offset, status=status, name=name
+        )
+        total = db.get_bulk_transfers_count(status=status, name=name)
+
+        return jsonify({
+            'bulk_transfers': bulk_transfers,
+            'total': total,
+            'page': page,
+            'limit': limit
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -656,18 +737,19 @@ def create_bulk_transfer():
         data = request.get_json()
         name = data.get('name')
         transfers_text = data.get('transfers_text')
-        
+        exclude_emails = data.get('exclude_emails', '')
+
         if not name or not transfers_text:
             return jsonify({'error': 'Имя и список переносов обязательны'}), 400
-        
+
         # Парсим список переносов
         transfers = bulk_manager.parse_bulk_input(transfers_text)
-        
+
         if not transfers:
             return jsonify({'error': 'Не удалось распарсить список переносов'}), 400
-        
+
         # Создаем массовый перенос
-        bulk_id = bulk_manager.create_bulk_transfer(name, transfers)
+        bulk_id = bulk_manager.create_bulk_transfer(name, transfers, exclude_emails=exclude_emails)
         
         return jsonify({
             'bulk_id': bulk_id,

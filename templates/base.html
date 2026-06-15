@@ -3,98 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Gmail Transfer Tool{% endblock %}</title>
-    
-    <!-- Bootstrap CSS -->
+    <title>{% block title %}Gmail Transfer{% endblock %}</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
-    
+
     {% block head %}{% endblock %}
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <i class="bi bi-envelope-arrow-up me-2 fs-4"></i>
-                <span class="fw-bold">Gmail Transfer</span>
+    {% set active_page = active_page|default('') %}
+    <header class="app-navbar">
+        <div class="container-nav">
+            <a class="app-brand" href="/">
+                <span class="brand-mark"><i class="bi bi-envelope-arrow-up-fill"></i></span>
+                Gmail Transfer
             </a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#status" id="statusIndicator">
-                            <i class="bi bi-circle-fill text-warning me-1"></i>
-                            Проверка...
-                        </a>
-                    </li>
-                </ul>
-            </div>
+            <nav class="app-nav">
+                <a href="/" class="{{ 'active' if active_page == 'home' }}">
+                    <i class="bi bi-grid-1x2"></i><span class="nav-text">Главная</span>
+                </a>
+                <a href="/single" class="{{ 'active' if active_page == 'single' }}">
+                    <i class="bi bi-arrow-left-right"></i><span class="nav-text">Одиночный</span>
+                </a>
+                <a href="/bulk" class="{{ 'active' if active_page == 'bulk' }}">
+                    <i class="bi bi-collection"></i><span class="nav-text">Массовый</span>
+                </a>
+                <a href="/history" class="{{ 'active' if active_page == 'history' }}">
+                    <i class="bi bi-clock-history"></i><span class="nav-text">История</span>
+                </a>
+            </nav>
+            <span class="status-pill" id="statusPill" title="Состояние подключения к Gmail API">
+                <span class="dot"></span><span class="pill-text">Проверка…</span>
+            </span>
         </div>
-    </nav>
+    </header>
 
-    <!-- Main Content -->
-    <main class="container-fluid px-4 py-4">
-        <!-- Alerts -->
-        <div id="alertContainer"></div>
-        
+    <main class="app-main">
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-light py-4 mt-5">
-        <div class="container text-center">
-            <div class="row">
-                <div class="col-md-6">
-                    <p class="text-muted mb-0">
-                        <i class="bi bi-shield-check me-1"></i>
-                        Безопасный перенос почты через Google Workspace API
-                    </p>
-                </div>
-                <div class="col-md-6">
-                    <p class="text-muted mb-0">
-                        <i class="bi bi-github me-1"></i>
-                        <a href="https://github.com/noragami90/gmail_transfer" target="_blank" class="text-decoration-none">
-                            Gmail Transfer Tool
-                        </a>
-                    </p>
-                </div>
-            </div>
+    <footer class="app-footer">
+        <div class="container-nav">
+            <span><i class="bi bi-shield-check me-1 text-accent"></i>Безопасный перенос почты через Google Workspace API</span>
+            <a href="https://github.com/noragami90/gmail_transfer" target="_blank" rel="noopener">
+                <i class="bi bi-github me-1"></i>Gmail Transfer Tool
+            </a>
         </div>
     </footer>
 
-    <!-- Loading Modal -->
-    <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-body text-center py-4">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Загрузка...</span>
-                    </div>
-                    <h5 class="modal-title" id="loadingModalTitle">Загрузка...</h5>
-                    <p class="text-muted mb-0" id="loadingModalText">Пожалуйста, подождите</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Toast notifications -->
+    <div class="toast-stack" id="toastStack"></div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Socket.IO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

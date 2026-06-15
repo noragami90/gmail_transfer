@@ -317,14 +317,14 @@ class EmailTransfer:
         
         return label_ids
     
-    def transfer_single_message(self, source_user_email: str, target_user_email: str, 
-                               message_id: str, transfer_label_id: str = None, 
+    def transfer_single_message(self, source_user_email: str, target_user_email: str,
+                               message_id: str, transfer_label_id: str = None,
                                source_labels_map: Dict[str, str] = None,
                                target_labels_map: Dict[str, str] = None,
-                               exclude_emails: List[str] = None) -> bool:
+                               exclude_emails: List[str] = None) -> str:
         """
         Переносит одно сообщение
-        
+
         Args:
             source_user_email: Email исходного пользователя
             target_user_email: Email целевого пользователя
@@ -332,18 +332,20 @@ class EmailTransfer:
             transfer_label_id: ID метки переноса (если уже создана)
             source_labels_map: Карта меток источника (id -> name)
             target_labels_map: Карта меток цели (name -> id)
-            
+
         Returns:
-            True если перенос успешен, False иначе
+            'transferred' — сообщение успешно перенесено,
+            'skipped' — сообщение исключено из переноса,
+            'error' — при переносе произошла ошибка
         """
         try:
             # Получаем детали сообщения
             message_details = self.gmail_client.get_message_details(source_user_email, message_id)
-            
+
             # Проверяем, нужно ли исключить это сообщение
             if exclude_emails and self.should_exclude_message(message_details, exclude_emails):
                 logger.info(f"Сообщение {message_id} исключено из переноса")
-                return True  # Считаем успешным, но пропускаем
+                return 'skipped'
             
             # Получаем raw содержимое
             raw_message = self.get_message_raw(source_user_email, message_id)
@@ -394,15 +396,16 @@ class EmailTransfer:
             )
             
             logger.debug(f"Сообщение {message_id} успешно перенесено как {result.get('id')}")
-            return True
-            
+            return 'transferred'
+
         except Exception as e:
             logger.error(f"Ошибка переноса сообщения {message_id}: {e}")
-            return False
-    
+            return 'error'
+
     def transfer_all_messages(self, source_user_email: str, target_user_email: str,
                              query: str = "", max_messages: Optional[int] = None,
-                             create_transfer_label: bool = True) -> Dict[str, int]:
+                             create_transfer_label: bool = True,
+                             exclude_emails: Optional[List[str]] = None) -> Dict[str, int]:
         """
         Переносит все сообщения от одного пользователя к другому
         
@@ -476,27 +479,31 @@ class EmailTransfer:
                     
                     try:
                         # Переносим сообщение ЭФФЕКТИВНО (без повторных API вызовов)
-                        success = self.transfer_single_message(
-                            source_user_email, 
-                            target_user_email, 
+                        status = self.transfer_single_message(
+                            source_user_email,
+                            target_user_email,
                             message_id,
                             transfer_label_id,
                             source_labels_map,
-                            target_labels_map
+                            target_labels_map,
+                            exclude_emails=exclude_emails
                         )
-                        
-                        if success:
+
+                        if status == 'transferred':
                             self.transferred_count += 1
+                        elif status == 'skipped':
+                            self.skipped_count += 1
                         else:
                             self.error_count += 1
-                        
+
                     except Exception as e:
                         logger.error(f"Критическая ошибка при переносе сообщения {message_id}: {e}")
                         self.error_count += 1
-                    
+
                     # Обновляем прогресс
                     pbar.set_postfix({
                         'Перенесено': self.transferred_count,
+                        'Пропущено': self.skipped_count,
                         'Ошибок': self.error_count
                     })
                     pbar.update(1)
