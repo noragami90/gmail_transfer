@@ -652,8 +652,16 @@ textarea.form-control { line-height: 1.6; }
     align-items: center;
     gap: 0.4rem;
     font-weight: 500;
+    min-width: 0;
 }
-.route .arrow { color: var(--accent); }
+.route .arrow { color: var(--accent); flex: 0 0 auto; }
+
+/* Inside list items the route must shrink so the status badge never overflows */
+.transfer-item .d-flex { min-width: 0; }
+.transfer-item .route { display: flex; }
+.transfer-item .route > span { min-width: 0; flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transfer-item .route > span.text-truncate-mid { max-width: none; }
+.transfer-item .badge { flex: 0 0 auto; white-space: nowrap; }
 
 /* ------------------------------ Empty state ----------------------------- */
 .empty-state {
@@ -671,6 +679,8 @@ textarea.form-control { line-height: 1.6; }
 /* --------------------------- Helper / utility --------------------------- */
 .hint-list code { display: inline-block; margin-bottom: 0.15rem; }
 .divider { height: 1px; background: var(--border); margin: 1.25rem 0; border: 0; }
+.min-w-0 { min-width: 0 !important; }
+.transfer-item .flex-grow-1 { min-width: 0; }
 
 .text-truncate-mid {
     white-space: nowrap;
