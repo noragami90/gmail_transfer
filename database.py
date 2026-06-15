@@ -60,6 +60,7 @@ class TransferDatabase:
                     total_messages INTEGER DEFAULT 0,
                     transferred_messages INTEGER DEFAULT 0,
                     error_messages INTEGER DEFAULT 0,
+                    skipped_messages INTEGER DEFAULT 0,
                     start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     end_time TIMESTAMP,
                     error_message TEXT,
@@ -90,7 +91,13 @@ class TransferDatabase:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_transfers_target ON transfers(target_email)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_transfers_created ON transfers(created_at)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_bulk_status ON bulk_transfers(status)')
-            
+
+            # Миграция: добавляем недостающие колонки в существующие БД
+            existing_columns = {row['name'] for row in cursor.execute('PRAGMA table_info(transfers)')}
+            if 'skipped_messages' not in existing_columns:
+                cursor.execute('ALTER TABLE transfers ADD COLUMN skipped_messages INTEGER DEFAULT 0')
+                logger.info("Миграция: добавлена колонка skipped_messages")
+
         logger.info(f"База данных инициализирована: {self.db_path}")
     
     def create_transfer(self, transfer_data: Dict[str, Any]) -> str:
@@ -171,13 +178,13 @@ class TransferDatabase:
                 params.append(status)
             
             if source_email:
-                where_clauses.append("source_email = ?")
-                params.append(source_email)
-            
+                where_clauses.append("source_email LIKE ?")
+                params.append(f"%{source_email}%")
+
             where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-            
+
             query = f'''
-                SELECT * FROM transfers 
+                SELECT * FROM transfers
                 {where_sql}
                 ORDER BY created_at DESC 
                 LIMIT ? OFFSET ?
@@ -196,6 +203,50 @@ class TransferDatabase:
             
             return transfers
     
+    def get_transfers_count(self, status: Optional[str] = None,
+                            source_email: Optional[str] = None) -> int:
+        """Подсчёт количества переносов с учётом фильтров (для пагинации)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            where_clauses = []
+            params = []
+
+            if status:
+                where_clauses.append("status = ?")
+                params.append(status)
+
+            if source_email:
+                where_clauses.append("source_email LIKE ?")
+                params.append(f"%{source_email}%")
+
+            where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+            cursor.execute(f"SELECT COUNT(*) FROM transfers {where_sql}", params)
+            return cursor.fetchone()[0]
+
+    def get_bulk_transfers_count(self, status: Optional[str] = None,
+                                 name: Optional[str] = None) -> int:
+        """Подсчёт количества массовых переносов с учётом фильтров"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            where_clauses = []
+            params = []
+
+            if status:
+                where_clauses.append("status = ?")
+                params.append(status)
+
+            if name:
+                where_clauses.append("name LIKE ?")
+                params.append(f"%{name}%")
+
+            where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+            cursor.execute(f"SELECT COUNT(*) FROM bulk_transfers {where_sql}", params)
+            return cursor.fetchone()[0]
+
     def get_transfer_stats(self) -> Dict[str, Any]:
         """Получение статистики переносов"""
         with self.get_connection() as conn:
@@ -286,16 +337,33 @@ class TransferDatabase:
                 return bulk
             return None
     
-    def get_bulk_transfers(self, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    def get_bulk_transfers(self, limit: int = 20, offset: int = 0,
+                           status: Optional[str] = None,
+                           name: Optional[str] = None) -> List[Dict[str, Any]]:
         """Получение списка массовых переносов"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT * FROM bulk_transfers 
-                ORDER BY created_at DESC 
+
+            where_clauses = []
+            params = []
+
+            if status:
+                where_clauses.append("status = ?")
+                params.append(status)
+
+            if name:
+                where_clauses.append("name LIKE ?")
+                params.append(f"%{name}%")
+
+            where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+            params.extend([limit, offset])
+
+            cursor.execute(f'''
+                SELECT * FROM bulk_transfers
+                {where_sql}
+                ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
-            ''', (limit, offset))
+            ''', params)
             rows = cursor.fetchall()
             
             bulks = []

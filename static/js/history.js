@@ -1,291 +1,232 @@
-// Gmail Transfer Tool - History Page JavaScript
+/* Gmail Transfer Tool — history page */
+(function () {
+    'use strict';
+    const { toast, statusBadge, escapeHtml, formatDateTime } = window.App;
+    const $ = (id) => document.getElementById(id);
 
-class TransferHistoryApp {
-    constructor() {
-        this.currentPage = 1;
-        this.currentFilters = {};
-        this.init();
-    }
-    
-    init() {
-        this.bindEvents();
-        this.loadStats();
-        this.loadHistory();
-    }
-    
-    bindEvents() {
-        // Refresh button
-        document.getElementById('refreshHistoryBtn').addEventListener('click', () => {
-            this.refreshData();
-        });
-        
-        // Apply filters
-        document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-            this.applyFilters();
-        });
-        
-        // Enter key in filter fields
-        document.getElementById('sourceEmailFilter').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.applyFilters();
-            }
-        });
-    }
-    
-    async loadStats() {
-        try {
-            const response = await fetch('/api/transfers/stats');
-            const stats = await response.json();
-            
-            if (response.ok) {
-                this.updateStats(stats);
-            }
-        } catch (error) {
-            console.error('Failed to load stats:', error);
+    class History {
+        constructor() {
+            this.pageSize = 10;
+            this.singlePage = 1;
+            this.bulkPage = 1;
+            this.bulkLoaded = false;
+            this.modal = new bootstrap.Modal($('detailsModal'));
+            this.bindEvents();
+            this.loadSingle();
         }
-    }
-    
-    updateStats(stats) {
-        document.getElementById('totalTransfers').textContent = (stats.total_transfers || 0).toLocaleString();
-        document.getElementById('completedTransfers').textContent = (stats.completed || 0).toLocaleString();
-        document.getElementById('runningTransfers').textContent = (stats.running || 0).toLocaleString();
-        document.getElementById('failedTransfers').textContent = (stats.failed || 0).toLocaleString();
-        document.getElementById('totalMessages').textContent = (stats.total_messages_transferred || 0).toLocaleString();
-        
-        // Top sources
-        const topSourcesList = document.getElementById('topSourcesList');
-        if (stats.top_sources && stats.top_sources.length > 0) {
-            topSourcesList.innerHTML = stats.top_sources.map(source => 
-                `<div class="d-flex justify-content-between">
-                    <small class="text-truncate">${source.source_email}</small>
-                    <span class="badge bg-primary">${source.count}</span>
-                </div>`
-            ).join('');
-        } else {
-            topSourcesList.innerHTML = '<small class="text-muted">Нет данных</small>';
-        }
-    }
-    
-    async loadHistory(page = 1) {
-        try {
-            const params = new URLSearchParams({
-                page: page,
-                limit: 20,
-                ...this.currentFilters
-            });
-            
-            const response = await fetch(`/api/transfers/history?${params}`);
-            const data = await response.json();
-            
-            if (response.ok) {
-                this.updateHistoryTable(data.transfers);
-                this.updatePagination(data.page, data.limit, data.transfers.length);
-                this.currentPage = page;
-            }
-        } catch (error) {
-            console.error('Failed to load history:', error);
-        }
-    }
-    
-    updateHistoryTable(transfers) {
-        const tbody = document.getElementById('historyTableBody');
-        
-        if (transfers.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        <i class="bi bi-inbox display-6"></i>
-                        <p class="mt-2 mb-0">История переносов пуста</p>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        tbody.innerHTML = transfers.map(transfer => {
-            const startTime = new Date(transfer.created_at).toLocaleString();
-            const statusBadge = this.getStatusBadge(transfer.status);
-            const totalMessages = transfer.total_messages || 0;
-            const transferredMessages = transfer.transferred_messages || 0;
-            const errorMessages = transfer.error_messages || 0;
-            
-            return `
-                <tr>
-                    <td>
-                        <small>${startTime}</small>
-                    </td>
-                    <td>
-                        <div class="text-truncate" style="max-width: 200px;" title="${transfer.source_email}">
-                            ${transfer.source_email}
-                        </div>
-                    </td>
-                    <td>
-                        <div class="text-truncate" style="max-width: 200px;" title="${transfer.target_email}">
-                            ${transfer.target_email}
-                        </div>
-                    </td>
-                    <td>
-                        <span class="badge bg-light text-dark">${totalMessages.toLocaleString()}</span>
-                        ${transferredMessages > 0 ? `<br><small class="text-success">✓ ${transferredMessages}</small>` : ''}
-                        ${errorMessages > 0 ? `<br><small class="text-danger">✗ ${errorMessages}</small>` : ''}
-                    </td>
-                    <td>${statusBadge}</td>
-                    <td>
-                        <button class="btn btn-outline-primary btn-sm" onclick="transferHistory.showDetails('${transfer.id}')">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-    
-    getStatusBadge(status) {
-        const badges = {
-            completed: '<span class="badge bg-success">Завершено</span>',
-            running: '<span class="badge bg-primary">Выполняется</span>',
-            error: '<span class="badge bg-danger">Ошибка</span>',
-            cancelled: '<span class="badge bg-warning">Отменено</span>',
-            pending: '<span class="badge bg-secondary">Ожидание</span>'
-        };
-        return badges[status] || '<span class="badge bg-secondary">Неизвестно</span>';
-    }
-    
-    updatePagination(currentPage, limit, resultsCount) {
-        const pagination = document.getElementById('historyPagination');
-        const hasNext = resultsCount === limit;
-        const hasPrev = currentPage > 1;
-        
-        let html = '';
-        
-        if (hasPrev) {
-            html += `
-                <li class="page-item">
-                    <a class="page-link" href="#" onclick="transferHistory.loadHistory(${currentPage - 1})">
-                        <i class="bi bi-chevron-left"></i>
-                    </a>
-                </li>
-            `;
-        }
-        
-        html += `
-            <li class="page-item active">
-                <span class="page-link">Страница ${currentPage}</span>
-            </li>
-        `;
-        
-        if (hasNext) {
-            html += `
-                <li class="page-item">
-                    <a class="page-link" href="#" onclick="transferHistory.loadHistory(${currentPage + 1})">
-                        <i class="bi bi-chevron-right"></i>
-                    </a>
-                </li>
-            `;
-        }
-        
-        pagination.innerHTML = html;
-    }
-    
-    applyFilters() {
-        this.currentFilters = {};
-        
-        const statusFilter = document.getElementById('statusFilter').value;
-        const sourceEmailFilter = document.getElementById('sourceEmailFilter').value.trim();
-        
-        if (statusFilter) {
-            this.currentFilters.status = statusFilter;
-        }
-        
-        if (sourceEmailFilter) {
-            this.currentFilters.source_email = sourceEmailFilter;
-        }
-        
-        this.currentPage = 1;
-        this.loadHistory(1);
-    }
-    
-    async showDetails(transferId) {
-        try {
-            const response = await fetch(`/api/task-status/${transferId}`);
-            const data = await response.json();
-            
-            if (response.ok) {
-                this.displayTransferDetails(data);
-            } else {
-                // Fallback - try to get from history API
-                this.showError('Детали недоступны', 'Не удалось загрузить детали переноса');
-            }
-        } catch (error) {
-            this.showError('Ошибка', 'Не удалось загрузить детали переноса');
-        }
-    }
-    
-    displayTransferDetails(data) {
-        const modalBody = document.getElementById('transferDetailsBody');
-        
-        modalBody.innerHTML = `
-            <div class="row">
-                <div class="col-md-6">
-                    <h6>Основная информация</h6>
-                    <table class="table table-sm">
-                        <tr><td>Статус:</td><td>${this.getStatusBadge(data.status)}</td></tr>
-                        <tr><td>Откуда:</td><td>${data.task?.source_email || 'N/A'}</td></tr>
-                        <tr><td>Куда:</td><td>${data.task?.target_email || 'N/A'}</td></tr>
-                        <tr><td>Начало:</td><td>${data.task?.start_time ? new Date(data.task.start_time).toLocaleString() : 'N/A'}</td></tr>
-                    </table>
-                </div>
-                <div class="col-md-6">
-                    <h6>Статистика</h6>
-                    <table class="table table-sm">
-                        <tr><td>Всего сообщений:</td><td>${data.result?.total || 0}</td></tr>
-                        <tr><td>Перенесено:</td><td class="text-success">${data.result?.transferred || 0}</td></tr>
-                        <tr><td>Ошибок:</td><td class="text-danger">${data.result?.errors || 0}</td></tr>
-                    </table>
-                </div>
-            </div>
-        `;
-        
-        const modal = new bootstrap.Modal(document.getElementById('transferDetailsModal'));
-        modal.show();
-    }
-    
-    refreshData() {
-        this.loadStats();
-        this.loadHistory(this.currentPage);
-        this.showAlert('info', 'Данные обновлены');
-    }
-    
-    showAlert(type, message) {
-        // Используем алерты из основного приложения
-        const alertContainer = document.body;
-        const alertId = 'alert-' + Date.now();
-        
-        const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show position-fixed" 
-                 style="top: 20px; right: 20px; z-index: 1055;" role="alert" id="${alertId}">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        alertContainer.insertAdjacentHTML('beforeend', alertHtml);
-        
-        setTimeout(() => {
-            const alert = document.getElementById(alertId);
-            if (alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
-        }, 3000);
-    }
-    
-    showError(title, message) {
-        this.showAlert('danger', `<strong>${title}:</strong> ${message}`);
-    }
-}
 
-// Инициализация приложения
-document.addEventListener('DOMContentLoaded', () => {
-    window.transferHistory = new TransferHistoryApp();
-});
+        bindEvents() {
+            $('bulk-tab').addEventListener('shown.bs.tab', () => { if (!this.bulkLoaded) this.loadBulk(); });
+            $('applySingleFilters').addEventListener('click', () => { this.singlePage = 1; this.loadSingle(); });
+            $('applyBulkFilters').addEventListener('click', () => { this.bulkPage = 1; this.loadBulk(); });
+        }
+
+        /* ----------------------------- Single ---------------------------- */
+        async loadSingle() {
+            const status = $('singleStatusFilter').value;
+            const source = $('singleSourceFilter').value.trim();
+            let url = `/api/transfers/history?page=${this.singlePage}&limit=${this.pageSize}`;
+            if (status) url += `&status=${status}`;
+            if (source) url += `&source_email=${encodeURIComponent(source)}`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                this.renderSingle(data.transfers || []);
+                this.renderPagination('singlePagination', this.singlePage, data.total || 0,
+                    'singleShowing', 'singleTotal', (data.transfers || []).length,
+                    (p) => { this.singlePage = p; this.loadSingle(); });
+            } catch (e) {
+                this.renderSingle([]);
+            }
+        }
+
+        renderSingle(rows) {
+            const tbody = $('singleTableBody');
+            if (!rows.length) {
+                tbody.innerHTML = this.emptyRow(6, 'История одиночных переносов пуста', '/single', 'Создать перенос');
+                return;
+            }
+            tbody.innerHTML = rows.map((t) => `
+                <tr>
+                    <td><small>${formatDateTime(t.created_at)}</small></td>
+                    <td><span class="text-truncate-mid" title="${escapeHtml(t.source_email)}">${escapeHtml(t.source_email)}</span></td>
+                    <td><span class="text-truncate-mid" title="${escapeHtml(t.target_email)}">${escapeHtml(t.target_email)}</span></td>
+                    <td><span class="badge badge-info">${t.transferred_messages || 0} / ${t.total_messages || 0}</span></td>
+                    <td>${statusBadge(t.status)}</td>
+                    <td class="text-end">
+                        <button class="btn btn-outline-secondary btn-sm" data-single="${escapeHtml(t.id)}" title="Детали"><i class="bi bi-eye"></i></button>
+                    </td>
+                </tr>`).join('');
+            tbody.querySelectorAll('[data-single]').forEach((b) =>
+                b.addEventListener('click', () => this.showSingle(b.dataset.single)));
+        }
+
+        async showSingle(id) {
+            this.openModal('Детали переноса', '<div class="text-center py-3"><i class="bi bi-arrow-clockwise spin"></i></div>');
+            try {
+                const res = await fetch(`/api/transfers/${id}`);
+                const t = await res.json();
+                if (!res.ok) throw new Error(t.error);
+                this.setModalBody(`
+                    <div class="route mb-3" style="font-size:1.05rem;">
+                        <span>${escapeHtml(t.source_email)}</span><i class="bi bi-arrow-right arrow"></i><span>${escapeHtml(t.target_email)}</span>
+                    </div>
+                    ${this.kv([
+                        ['Статус', statusBadge(t.status)],
+                        ['Создан', formatDateTime(t.created_at)],
+                        ['Завершён', formatDateTime(t.end_time)],
+                        ['Фильтр', t.query_filter ? `<code>${escapeHtml(t.query_filter)}</code>` : '—'],
+                        ['Всего сообщений', t.total_messages || 0],
+                        ['Перенесено', t.transferred_messages || 0],
+                        ['Пропущено', t.skipped_messages || 0],
+                        ['Ошибок', t.error_messages || 0],
+                    ])}
+                    ${t.error_message ? `<div class="text-danger mt-2"><i class="bi bi-exclamation-octagon me-1"></i>${escapeHtml(t.error_message)}</div>` : ''}
+                `);
+            } catch (e) {
+                this.setModalBody(`<div class="text-danger">Не удалось загрузить детали: ${escapeHtml(e.message)}</div>`);
+            }
+        }
+
+        /* ------------------------------ Bulk ----------------------------- */
+        async loadBulk() {
+            this.bulkLoaded = true;
+            const status = $('bulkStatusFilter').value;
+            const name = $('bulkNameFilter').value.trim();
+            let url = `/api/bulk-transfers?page=${this.bulkPage}&limit=${this.pageSize}`;
+            if (status) url += `&status=${status}`;
+            if (name) url += `&name=${encodeURIComponent(name)}`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                this.renderBulk(data.bulk_transfers || []);
+                this.renderPagination('bulkPagination', this.bulkPage, data.total || 0,
+                    'bulkShowing', 'bulkTotalCount', (data.bulk_transfers || []).length,
+                    (p) => { this.bulkPage = p; this.loadBulk(); });
+            } catch (e) {
+                this.renderBulk([]);
+            }
+        }
+
+        renderBulk(rows) {
+            const tbody = $('bulkTableBody');
+            if (!rows.length) {
+                tbody.innerHTML = this.emptyRow(7, 'История массовых переносов пуста', '/bulk', 'Создать массовый перенос');
+                return;
+            }
+            tbody.innerHTML = rows.map((b) => `
+                <tr>
+                    <td><div class="fw-semibold">${escapeHtml(b.name)}</div></td>
+                    <td><small>${formatDateTime(b.created_at)}</small></td>
+                    <td><span class="badge badge-info">${b.total_transfers || 0}</span></td>
+                    <td><span class="badge badge-success">${b.completed_transfers || 0}</span></td>
+                    <td><span class="badge badge-danger">${b.failed_transfers || 0}</span></td>
+                    <td>${statusBadge(b.status)}</td>
+                    <td class="text-end">
+                        <button class="btn btn-outline-secondary btn-sm" data-bulk="${escapeHtml(b.id)}" title="Детали"><i class="bi bi-eye"></i></button>
+                        ${b.status === 'running' ? `<button class="btn btn-outline-danger btn-sm" data-cancel="${escapeHtml(b.id)}" title="Отменить"><i class="bi bi-stop-fill"></i></button>` : ''}
+                    </td>
+                </tr>`).join('');
+            tbody.querySelectorAll('[data-bulk]').forEach((b) =>
+                b.addEventListener('click', () => this.showBulk(b.dataset.bulk)));
+            tbody.querySelectorAll('[data-cancel]').forEach((b) =>
+                b.addEventListener('click', () => this.cancelBulk(b.dataset.cancel)));
+        }
+
+        async showBulk(id) {
+            this.openModal('Детали массового переноса', '<div class="text-center py-3"><i class="bi bi-arrow-clockwise spin"></i></div>');
+            try {
+                const res = await fetch(`/api/bulk-transfer/status/${id}`);
+                const b = await res.json();
+                if (!res.ok) throw new Error(b.error);
+                const list = Array.isArray(b.transfers_data) ? b.transfers_data : [];
+                this.setModalBody(`
+                    <h6 class="mb-2">${escapeHtml(b.name || '')}</h6>
+                    ${this.kv([
+                        ['Статус', statusBadge(b.status)],
+                        ['Создан', formatDateTime(b.created_at)],
+                        ['Всего переносов', b.total_transfers ?? list.length],
+                        ['Завершено', b.completed_transfers || 0],
+                        ['Ошибок', b.failed_transfers || 0],
+                    ])}
+                    ${list.length ? `<hr class="divider"><div class="small text-muted mb-2">Переносы в наборе:</div>
+                        ${list.map((t) => `<div class="transfer-item"><div class="route"><span>${escapeHtml(t.source_email)}</span><i class="bi bi-arrow-right arrow"></i><span>${escapeHtml(t.target_email)}</span></div>${t.query ? `<small class="text-muted">Фильтр: ${escapeHtml(t.query)}</small>` : ''}</div>`).join('')}` : ''}
+                `);
+            } catch (e) {
+                this.setModalBody(`<div class="text-danger">Не удалось загрузить детали: ${escapeHtml(e.message)}</div>`);
+            }
+        }
+
+        async cancelBulk(id) {
+            if (!confirm('Отменить массовый перенос?')) return;
+            try {
+                const res = await fetch('/api/bulk-transfer/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bulk_id: id })
+                });
+                const data = await res.json();
+                if (res.ok) { toast('warning', 'Массовый перенос отменён'); this.loadBulk(); }
+                else toast('danger', data.error || 'Не удалось отменить');
+            } catch (e) {
+                toast('danger', `Ошибка: ${e.message}`);
+            }
+        }
+
+        /* ----------------------------- Helpers --------------------------- */
+        kv(pairs) {
+            return `<div class="row g-2">${pairs.map(([k, v]) => `
+                <div class="col-sm-6 d-flex justify-content-between border-bottom py-1" style="border-color:var(--border)!important;">
+                    <span class="text-muted">${k}</span><span class="fw-medium text-end">${v}</span>
+                </div>`).join('')}</div>`;
+        }
+
+        emptyRow(cols, text, href, cta) {
+            return `<tr><td colspan="${cols}">
+                <div class="empty-state">
+                    <i class="bi bi-inbox empty-icon"></i>
+                    <p class="mb-2">${text}</p>
+                    <a href="${href}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg"></i>${cta}</a>
+                </div></td></tr>`;
+        }
+
+        renderPagination(elId, current, total, showingId, totalId, shownCount, onChange) {
+            const pages = Math.ceil(total / this.pageSize);
+            $(showingId).textContent = shownCount;
+            $(totalId).textContent = total;
+            const ul = $(elId);
+            if (pages <= 1) { ul.innerHTML = ''; return; }
+
+            let html = '';
+            const item = (label, page, disabled, active) =>
+                `<li class="page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="${page}">${label}</a></li>`;
+
+            html += item('‹', current - 1, current <= 1, false);
+            for (let i = Math.max(1, current - 2); i <= Math.min(pages, current + 2); i++) {
+                html += item(i, i, false, i === current);
+            }
+            html += item('›', current + 1, current >= pages, false);
+            ul.innerHTML = html;
+            ul.querySelectorAll('.page-link').forEach((a) =>
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const p = parseInt(a.dataset.page);
+                    if (p >= 1 && p <= pages && p !== current) onChange(p);
+                }));
+        }
+
+        openModal(title, body) {
+            $('detailsTitle').textContent = title;
+            $('detailsBody').innerHTML = body;
+            this.modal.show();
+        }
+        setModalBody(html) { $('detailsBody').innerHTML = html; }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { window.historyApp = new History(); });
+})();
